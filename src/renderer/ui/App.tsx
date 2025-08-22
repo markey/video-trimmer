@@ -122,13 +122,7 @@ const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermark, fps, trim
         v.pause();
       }
     } catch (e) {
-      console.warn('Play failed, retrying muted', e);
-      try {
-        v.muted = true;
-        await v.play();
-      } catch (e2) {
-        console.error('Play failed', e2);
-      }
+      console.warn('Play/pause failed', e);
     }
   };
 
@@ -265,10 +259,12 @@ const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermark, fps, trim
                 max={Math.max(0, dur) || 0}
                 step={step}
                 value={isFinite(cur) ? cur : 0}
-                onMouseDown={(e) => { wasPlayingRef.current = playing; setIsScrubbing(true); const v = videoRef.current; if (v) v.pause(); }}
-                onTouchStart={() => { wasPlayingRef.current = playing; setIsScrubbing(true); const v = videoRef.current; if (v) v.pause(); }}
+                onMouseDown={() => { wasPlayingRef.current = playing; setIsScrubbing(true); const v = videoRef.current; if (v && !v.paused) v.pause(); }}
+                onTouchStart={() => { wasPlayingRef.current = playing; setIsScrubbing(true); const v = videoRef.current; if (v && !v.paused) v.pause(); }}
                 onInput={(e) => { const t = parseFloat((e.target as HTMLInputElement).value); const v = videoRef.current; if (v) { v.currentTime = t; setCur(t); } }}
-                onChange={(e) => { const t = parseFloat((e.target as HTMLInputElement).value); const v = videoRef.current; if (v) { v.currentTime = t; setCur(t); } setIsScrubbing(false); if (wasPlayingRef.current) togglePlay(); }}
+                onChange={(e) => { const t = parseFloat((e.target as HTMLInputElement).value); const v = videoRef.current; if (v) { v.currentTime = t; setCur(t); } setIsScrubbing(false); }}
+                onMouseUp={async () => { if (wasPlayingRef.current) { const v = videoRef.current; try { await v?.play(); } catch {} } }}
+                onTouchEnd={async () => { if (wasPlayingRef.current) { const v = videoRef.current; try { await v?.play(); } catch {} } }}
                 style={{ width: '100%', height: 6, borderRadius: 4, background: seekBg, outline: 'none', cursor: 'pointer' }}
               />
               <div style={{ fontVariantNumeric: 'tabular-nums', opacity: 0.9 }}>{timeStr(cur)} / {timeStr(dur)}</div>
@@ -297,7 +293,7 @@ const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermark, fps, trim
                 Vol
                 <input type="range" min={0} max={1} step={0.01} value={muted ? 0 : volume} onChange={(e) => { setVolume(parseFloat(e.target.value)); if (muted) setMuted(false); }} style={{ width: 100 }} />
               </label>
-              <button style={btnStyle} onClick={() => setMuted(m => !m)} title={muted ? 'Unmute' : 'Mute'}>{muted ? 'Unmute' : 'Mute'}</button>
+              <button style={btnStyle} onClick={() => { const v = videoRef.current; setMuted(m => { const next = !m; if (v) v.muted = next; return next; }); }} title={muted ? 'Unmute' : 'Mute'}>{muted ? 'Unmute' : 'Mute'}</button>
 
               <div style={{ width: 1, height: 20, background: '#333', margin: '0 6px' }} />
 
