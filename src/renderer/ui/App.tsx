@@ -12,6 +12,8 @@ declare global {
       saveFile: (defaultPath?: string) => Promise<string | null>;
       startExport: (args: any) => Promise<{ ok: true }>;
       onExportProgress: (cb: (ratio: number) => void) => () => void;
+      startDownload: (args: { url: string; outputPath: string }) => Promise<{ ok: true }>;
+      onDownloadProgress: (cb: (p: { phase: string; ratio?: number; speed?: string; eta?: string }) => void) => () => void;
     };
   }
 }
@@ -67,6 +69,14 @@ export const App: React.FC = () => {
           <MetaPanel project={project} />
         </section>
         <aside style={{ overflow: 'auto' }}>
+          <DownloadPanel onDownloaded={(p) => setProject(pr => ({ ...pr, sourcePath: p }))} onProbe={(meta) => setProject(pr => ({ ...pr, video: {
+            fps: meta.fps ?? null,
+            durationSec: meta.durationSec ?? null,
+            timebase: meta.timebase ?? null,
+            width: meta.width,
+            height: meta.height,
+            codec: meta.codec,
+          }, trim: { startSec: 0, endSec: meta.durationSec ?? 0 } }))} />
           <WatermarkPanel project={project} onChange={setProject} />
           <ExportPanel project={project} onChange={setProject} />
         </aside>
@@ -424,6 +434,69 @@ const MetaPanel: React.FC<{ project: ProjectStore }> = ({ project }) => {
         <div>Duration: {project.video.durationSec ?? '—'} s</div>
         <div>Timebase: {project.video.timebase ?? '—'}</div>
         <div>Resolution: {project.video.width}×{project.video.height}</div>
+      </div>
+    </div>
+  );
+};
+
+const DownloadPanel: React.FC<{ onDownloaded: (path: string) => void; onProbe: (meta: any) => void }> = ({ onDownloaded, onProbe }) => {
+  const [url, setUrl] = useState('');
+  const [outPath, setOutPath] = useState<string | undefined>(undefined);
+  const [progress, setProgress] = useState<{ phase: string; ratio?: number; speed?: string; eta?: string } | null>(null);
+  React.useEffect(() => {
+    const off = window.electronAPI.onDownloadProgress((p) => setProgress(p));
+    return () => { off?.(); };
+  }, []);
+
+  const chooseOutput = async () => {
+    // Let user choose final MP4 path
+    const p = await window.electronAPI.saveFile(outPath);
+    if (p) setOutPath(p);
+  };
+
+  const start = async () => {
+    if (!url) return alert('Enter a URL');
+    let p = outPath;
+    if (!p) {
+      p = await window.electronAPI.saveFile();
+      if (!p) return;
+      setOutPath(p);
+    }
+    setProgress({ phase: 'downloading', ratio: 0 });
+    try {
+      await window.electronAPI.startDownload({ url, outputPath: p! });
+      setProgress({ phase: 'completed', ratio: 1 });
+      onDownloaded(p!);
+      const res = await window.electronAPI.ffprobe(p!);
+      // @ts-ignore
+      onProbe(res.meta);
+    } catch (e: any) {
+      console.error(e);
+      alert('Download failed: ' + e.message);
+      setProgress(null);
+    }
+  };
+
+  return (
+    <div style={{ ...boxStyle, marginBottom: 12 }}>
+      <div style={sectionTitle}>Download</div>
+      <div style={fieldRow}>
+        <label style={labelStyle}>URL</label>
+        <input style={inputStyle} type="url" placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} />
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+        <button style={btnStyle} onClick={chooseOutput}>Choose Output…</button>
+        <span style={{ opacity: 0.8, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis' }}>{outPath ?? '(not set)'}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button style={btnStyle} disabled={!url || !!(progress && progress.phase !== 'completed')} onClick={start}>Download</button>
+        {progress && (
+          <span style={{ opacity: 0.85, fontSize: 12 }}>
+            {progress.phase}{progress.ratio != null ? ` ${(progress.ratio * 100).toFixed(0)}%` : ''}
+            {progress.speed ? ` • ${progress.speed}` : ''}
+            {progress.eta ? ` • ETA ${progress.eta}` : ''}
+          </span>
+        )}
       </div>
     </div>
   );

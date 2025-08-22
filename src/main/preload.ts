@@ -20,6 +20,12 @@ const api = {
     ipcRenderer.on('export:progress', handler);
     return () => ipcRenderer.off('export:progress', handler);
   },
+  startDownload: async (args: { url: string; outputPath: string }): Promise<{ ok: true }> => ipcRenderer.invoke('download:start', args),
+  onDownloadProgress: (cb: (p: { phase: string; ratio?: number; speed?: string; eta?: string }) => void) => {
+    const handler = (_: any, data: any) => cb(data);
+    ipcRenderer.on('download:progress', handler);
+    return () => ipcRenderer.off('download:progress', handler);
+  },
 };
 
 declare global {

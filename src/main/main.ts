@@ -141,4 +141,12 @@ function registerIpcHandlers() {
       }
     }
   });
+
+  ipcMain.handle('download:start', async (e, opts: { url: string; outputPath: string }) => {
+    const { startDownload } = await import('./services/downloader');
+    await startDownload({ url: opts.url, outputPath: opts.outputPath }, (p) => {
+      e.sender.send('download:progress', p);
+    });
+    return { ok: true };
+  });
 }

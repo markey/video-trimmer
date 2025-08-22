@@ -34,3 +34,20 @@ export function getFfprobePath(): string {
   return 'ffprobe';
 }
 
+export function getYtDlpPath(): string {
+  const candidates = [
+    // Windows common names/locations
+    path.resolve(process.resourcesPath ?? '.', 'yt-dlp.exe'),
+    path.resolve(process.cwd(), 'bin/yt-dlp.exe'),
+    'yt-dlp.exe',
+    // Cross-platform
+    path.resolve(process.resourcesPath ?? '.', 'yt-dlp'),
+    path.resolve(process.cwd(), 'bin/yt-dlp'),
+    'yt-dlp',
+  ];
+  for (const p of candidates) {
+    if (p === 'yt-dlp' || p === 'yt-dlp.exe') return p; // trust PATH
+    if (fs.existsSync(p)) return p;
+  }
+  return 'yt-dlp';
+}
