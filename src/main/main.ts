@@ -55,21 +55,22 @@ app.whenReady().then(() => {
       const url = new URL(request.url);
       let filePath: string;
       if (process.platform === 'win32') {
-        // Support both safe-file:///C:/path and safe-file://c/path
-        const host = url.hostname; // e.g., 'c' in safe-file://c/Users/...
-        let pathname = decodeURIComponent(url.pathname); // e.g., '/Users/...'
+        const host = url.hostname; // 'c' if safe-file://c/Users/...
+        let pathname = decodeURIComponent(url.pathname); // '/Users/...'
         if (host) {
           const drive = host.toUpperCase();
           filePath = `${drive}:${pathname}`; // 'C:/Users/...'
         } else {
           // safe-file:///C:/Users/... => pathname '/C:/Users/...'
           if (pathname.startsWith('/')) pathname = pathname.slice(1);
-          filePath = pathname;
+          filePath = pathname; // 'C:/Users/...'
         }
+        // Normalize to Windows backslashes
+        filePath = filePath.replace(/\//g, '\\');
       } else {
         filePath = decodeURIComponent(url.pathname);
       }
-      callback(filePath);
+      callback({ path: filePath });
     } catch (e) {
       callback({ error: -2 }); // net::FAILED
     }
