@@ -36,14 +36,14 @@ export const defaultProject = (): ProjectStore => ({
   video: { fps: null, durationSec: null, timebase: null },
   trim: { startSec: 0, endSec: 0 },
   watermark: {
-    text: '© Watermark',
-    fontFamily: 'Inter',
+    text: '𝕏 @mark_k',
+    fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif',
     fontSizePx: 48,
     color: '#FFFFFF',
-    opacity: 0.5,
+    opacity: 0.85,
     anchor: 'bottomRight',
-    offsetX: 24,
-    offsetY: 24,
+    offsetX: 32,
+    offsetY: 32,
   },
   export: {
     container: 'mp4',
@@ -53,4 +53,3 @@ export const defaultProject = (): ProjectStore => ({
     quality: { mode: 'crf', value: 18 },
   },
 });
-

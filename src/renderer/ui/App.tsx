@@ -57,7 +57,7 @@ export const App: React.FC = () => {
         <section style={{ display: 'grid', gridTemplateRows: 'minmax(240px, 1fr) 160px auto', gap: 12, minHeight: 0 }}>
           <PreviewPanel
             sourcePath={project.sourcePath}
-            watermarkText={project.watermark.text}
+            watermark={project.watermark}
             fps={project.video.fps ?? 30}
             trim={project.trim}
             onSetIn={(t) => setProject(p => ({ ...p, trim: { startSec: Math.min(t, p.trim.endSec), endSec: p.trim.endSec } }))}
@@ -79,14 +79,14 @@ const boxStyle: React.CSSProperties = { background: '#111', border: '1px solid #
 
 type PreviewProps = {
   sourcePath: string | null;
-  watermarkText: string;
+  watermark: ProjectStore['watermark'];
   fps: number;
   trim: { startSec: number; endSec: number };
   onSetIn: (t: number) => void;
   onSetOut: (t: number) => void;
 };
 
-const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermarkText, fps, trim, onSetIn, onSetOut }) => {
+const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermark, fps, trim, onSetIn, onSetOut }) => {
   const src = sourcePath ? window.electronAPI.fileUrl(sourcePath) : null;
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const [cur, setCur] = React.useState(0);
@@ -223,7 +223,28 @@ const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermarkText, fps, 
                 console.error('Video error', v?.error);
               }}
             />
-            <div style={{ position: 'absolute', right: 16, bottom: 16, color: 'white', opacity: 0.5, pointerEvents: 'none' }}>{watermarkText}</div>
+            {/* Watermark preview matching export styling */}
+            {watermark.text && (
+              <div style={{
+                position: 'absolute',
+                color: watermark.color,
+                opacity: watermark.opacity,
+                fontFamily: watermark.fontFamily,
+                fontSize: watermark.fontSizePx,
+                textShadow: '0 1px 2px rgba(0,0,0,0.6), 0 0 1px rgba(0,0,0,0.6)',
+                background: 'rgba(0,0,0,0.35)',
+                padding: '6px 10px',
+                borderRadius: 8,
+                pointerEvents: 'none',
+                whiteSpace: 'pre',
+                ...(watermark.anchor === 'topLeft' ? { top: watermark.offsetY, left: watermark.offsetX }
+                  : watermark.anchor === 'topRight' ? { top: watermark.offsetY, right: watermark.offsetX }
+                  : watermark.anchor === 'bottomLeft' ? { bottom: watermark.offsetY, left: watermark.offsetX }
+                  : { bottom: watermark.offsetY, right: watermark.offsetX }),
+              }}>
+                {watermark.text}
+              </div>
+            )}
           </div>
           <div style={{ display: 'grid', gap: 8, paddingTop: 8 }}>
             {/* Seek bar */}
@@ -306,6 +327,39 @@ const selectStyle: React.CSSProperties = {
   padding: '4px 8px',
 };
 
+const inputStyle: React.CSSProperties = {
+  background: '#2b3036',
+  color: '#eaeaea',
+  border: '1px solid #3a3f45',
+  borderRadius: 6,
+  padding: '6px 8px',
+  width: '100%',
+};
+
+const rangeStyle: React.CSSProperties = {
+  width: '100%',
+};
+
+const fieldRow: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  marginBottom: 10,
+};
+
+const labelStyle: React.CSSProperties = { width: 80, opacity: 0.9 };
+
+const valueBadge: React.CSSProperties = {
+  background: '#2b3036',
+  border: '1px solid #3a3f45',
+  borderRadius: 6,
+  padding: '2px 6px',
+  fontSize: 12,
+  opacity: 0.9,
+};
+
+const sectionTitle: React.CSSProperties = { marginBottom: 8, fontWeight: 600 };
+
 const TimelinePanel: React.FC<{ start: number; end: number; duration: number; onChange: (s: number, e: number) => void }> = ({ start, end, duration, onChange }) => {
   const [localStart, setLocalStart] = useState(start);
   const [localEnd, setLocalEnd] = useState(end);
@@ -380,41 +434,53 @@ const WatermarkPanel: React.FC<{ project: ProjectStore; onChange: (p: ProjectSto
   const set = (patch: Partial<ProjectStore['watermark']>) => onChange({ ...project, watermark: { ...wm, ...patch } });
   return (
     <div style={{ ...boxStyle, marginBottom: 12 }}>
-      <div style={{ marginBottom: 8, fontWeight: 600 }}>Watermark</div>
-      <label style={{ display: 'block', marginBottom: 6 }}>
-        Text
-        <input type="text" value={wm.text} onChange={(e) => set({ text: e.target.value })} />
-      </label>
-      <label style={{ display: 'block', marginBottom: 6 }}>
-        Font size
-        <input type="number" value={wm.fontSizePx} onChange={(e) => set({ fontSizePx: parseInt(e.target.value) })} />
-      </label>
-      <label style={{ display: 'block', marginBottom: 6 }}>
-        Color
-        <input type="color" value={wm.color} onChange={(e) => set({ color: e.target.value })} />
-      </label>
-      <label style={{ display: 'block', marginBottom: 6 }}>
-        Opacity
-        <input type="range" min={0} max={1} step={0.01} value={wm.opacity} onChange={(e) => set({ opacity: parseFloat(e.target.value) })} /> {wm.opacity.toFixed(2)}
-      </label>
-      <label style={{ display: 'block', marginBottom: 6 }}>
-        Anchor
-        <select value={wm.anchor} onChange={(e) => set({ anchor: e.target.value as any })}>
-          <option value="topLeft">Top Left</option>
-          <option value="topRight">Top Right</option>
-          <option value="bottomLeft">Bottom Left</option>
-          <option value="bottomRight">Bottom Right</option>
-        </select>
-      </label>
-      <div style={{ display: 'flex', gap: 12 }}>
-        <label>
-          Offset X
-          <input type="number" value={wm.offsetX} onChange={(e) => set({ offsetX: parseInt(e.target.value) })} />
-        </label>
-        <label>
-          Offset Y
-          <input type="number" value={wm.offsetY} onChange={(e) => set({ offsetY: parseInt(e.target.value) })} />
-        </label>
+      <div style={sectionTitle}>Watermark</div>
+
+      <div style={fieldRow}>
+        <label style={labelStyle}>Text</label>
+        <input style={inputStyle} type="text" value={wm.text} onChange={(e) => set({ text: e.target.value })} placeholder="Watermark text" />
+      </div>
+
+      <div style={fieldRow}>
+        <label style={labelStyle}>Size</label>
+        <input style={{ ...rangeStyle, flex: 1 }} type="range" min={12} max={160} step={1} value={wm.fontSizePx} onChange={(e) => set({ fontSizePx: parseInt(e.target.value) })} />
+        <div style={valueBadge}>{wm.fontSizePx}px</div>
+      </div>
+
+      <div style={fieldRow}>
+        <label style={labelStyle}>Color</label>
+        <input style={{ ...inputStyle, padding: 2, width: 48 }} type="color" value={wm.color} onChange={(e) => set({ color: e.target.value })} />
+        <div style={{ width: 12 }} />
+        <label style={labelStyle}>Opacity</label>
+        <input style={{ ...rangeStyle, flex: 1 }} type="range" min={0} max={1} step={0.01} value={wm.opacity} onChange={(e) => set({ opacity: parseFloat(e.target.value) })} />
+        <div style={valueBadge}>{wm.opacity.toFixed(2)}</div>
+      </div>
+
+      <div style={fieldRow}>
+        <label style={labelStyle}>Position</label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, flex: 1 }}>
+          {([
+            ['topLeft', '↖'],
+            ['topRight', '↗'],
+            ['bottomLeft', '↙'],
+            ['bottomRight', '↘'],
+          ] as const).map(([val, icon]) => (
+            <button key={val} style={{ ...btnStyle, padding: '6px 8px', background: wm.anchor === val ? '#3a3f45' : '#2b3036' }} onClick={() => set({ anchor: val as any })}>
+              {icon}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={fieldRow}>
+        <label style={labelStyle}>Offset X</label>
+        <input style={{ ...rangeStyle, flex: 1 }} type="range" min={0} max={200} step={1} value={wm.offsetX} onChange={(e) => set({ offsetX: parseInt(e.target.value) })} />
+        <div style={valueBadge}>{wm.offsetX}px</div>
+      </div>
+      <div style={fieldRow}>
+        <label style={labelStyle}>Offset Y</label>
+        <input style={{ ...rangeStyle, flex: 1 }} type="range" min={0} max={200} step={1} value={wm.offsetY} onChange={(e) => set({ offsetY: parseInt(e.target.value) })} />
+        <div style={valueBadge}>{wm.offsetY}px</div>
       </div>
     </div>
   );
@@ -462,15 +528,22 @@ const ExportPanel: React.FC<{ project: ProjectStore; onChange: (p: ProjectStore)
   };
   return (
     <div style={boxStyle}>
-      <div style={{ marginBottom: 8, fontWeight: 600 }}>Export</div>
-      <label style={{ display: 'block', marginBottom: 6 }}>
-        Use GPU
+      <div style={sectionTitle}>Export</div>
+
+      <div style={fieldRow}>
+        <label style={labelStyle}>Use GPU</label>
         <input type="checkbox" checked={exp.useHardwareAccel} onChange={(e) => set({ useHardwareAccel: e.target.checked })} />
-      </label>
-      <label style={{ display: 'block', marginBottom: 6 }}>
-        CRF
-        <input type="number" min={0} max={51} value={exp.quality.value} onChange={(e) => set({ quality: { mode: 'crf', value: parseInt(e.target.value) } })} />
-      </label>
+      </div>
+
+      <div style={fieldRow}>
+        <label style={labelStyle}>CRF</label>
+        <input style={{ ...rangeStyle, flex: 1 }} type="range" min={0} max={51} step={1} value={exp.quality.value} onChange={(e) => set({ quality: { mode: 'crf', value: parseInt(e.target.value) } })} />
+        <div style={valueBadge}>{exp.quality.value}</div>
+      </div>
+      <div style={{ opacity: 0.7, fontSize: 12, marginBottom: 6 }}>
+        Lower = better quality, 18–23 recommended for H.264.
+      </div>
+
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <button style={btnStyle} onClick={chooseOutput}>Choose Output…</button>
         <span style={{ opacity: 0.8, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis' }}>{exp.outputPath ?? '(not set)'}</span>

@@ -20,7 +20,9 @@ export function buildDrawTextFilter(project: ProjectStore, fontFile?: string) {
   const x = wm.anchor === 'topLeft' || wm.anchor === 'bottomLeft' ? `${wm.offsetX}` : `w-tw-${wm.offsetX}`;
   const y = wm.anchor === 'topLeft' || wm.anchor === 'topRight' ? `${wm.offsetY}` : `h-th-${wm.offsetY}`;
   const fontParam = fontFile ? `:fontfile='${escapeFfmpeg(fontFile)}'` : '';
-  return `drawtext=text='${escapeFfmpeg(wm.text)}'${fontParam}:fontsize=${fs}:fontcolor=${rgb}@${alpha}:x=${x}:y=${y}`;
+  // Add subtle shadow and soft box for elegance; this does not stretch text
+  const style = `:shadowcolor=000000@0.6:shadowx=2:shadowy=2:box=1:boxcolor=000000@0.35:boxborderw=10`;
+  return `drawtext=text='${escapeFfmpeg(wm.text)}'${fontParam}:fontsize=${fs}:fontcolor=${rgb}@${alpha}${style}:x=${x}:y=${y}`;
 }
 
 export function buildFfmpegArgs(opts: ExportOptions): string[] {
@@ -76,4 +78,3 @@ export function exportWithProgress(opts: ExportOptions, onProgress: (ratio: numb
 function escapeFfmpeg(text: string) {
   return text.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/'/g, "\\'");
 }
-
