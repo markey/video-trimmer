@@ -3,6 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
+// For ESM modules, use import.meta.url instead of __dirname
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let mainWindow: BrowserWindow | null = null;
@@ -12,7 +13,7 @@ function createWindow() {
     width: 1280,
     height: 800,
     webPreferences: {
-      preload: path.resolve(__dirname, 'preload.cjs'),
+      preload: path.resolve(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },

@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "description": "Minimal, fast, frame-accurate video trimmer with text watermark (Electron + React)",
-  "main": "out/main/main.cjs",
+  "main": "out/main.js",
   "type": "module",
   "scripts": {
     "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:main\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
     "dev:renderer": "vite --config vite.renderer.config.ts",
-    "dev:main": "esbuild src/main/main.ts src/main/preload.ts --outdir=out --platform=node --format=cjs --sourcemap --external:electron --watch",
+    "dev:main": "esbuild src/main/main.ts src/main/preload.ts --outdir=out --platform=node --format=esm --sourcemap --bundle --external:electron --out-extension:.js=.js --watch",
     "build": "rimraf dist out && vite build --config vite.renderer.config.ts && npm run build:main",
-    "build:main": "esbuild src/main/main.ts src/main/preload.ts --outdir=out --platform=node --format=cjs --sourcemap --external:electron",
+    "build:main": "esbuild src/main/main.ts src/main/preload.ts --outdir=out --platform=node --format=esm --sourcemap --bundle --external:electron --out-extension:.js=.js",
     "start": "electron .",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
