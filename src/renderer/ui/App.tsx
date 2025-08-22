@@ -9,6 +9,9 @@ declare global {
       readTextFile: (p: string) => Promise<string>;
       ffprobe: (src: string) => Promise<unknown>;
       fileUrl: (p: string) => string;
+      saveFile: (defaultPath?: string) => Promise<string | null>;
+      startExport: (args: any) => Promise<{ ok: true }>;
+      onExportProgress: (cb: (ratio: number) => void) => () => void;
     };
   }
 }
@@ -256,8 +259,42 @@ const WatermarkPanel: React.FC<{ project: ProjectStore; onChange: (p: ProjectSto
 const ExportPanel: React.FC<{ project: ProjectStore; onChange: (p: ProjectStore) => void }> = ({ project, onChange }) => {
   const exp = project.export;
   const set = (patch: Partial<ProjectStore['export']>) => onChange({ ...project, export: { ...exp, ...patch } });
+  const [progress, setProgress] = useState<number | null>(null);
+  React.useEffect(() => {
+    const off = window.electronAPI.onExportProgress((r) => setProgress(r));
+    return () => { off?.(); };
+  }, []);
+
+  const chooseOutput = async () => {
+    const path = await window.electronAPI.saveFile(exp.outputPath);
+    if (path) set({ outputPath: path });
+  };
+
   const onExport = async () => {
-    alert('Export not wired yet. This will construct FFmpeg command per blueprint.');
+    if (!project.sourcePath) return alert('No source file');
+    let out = exp.outputPath;
+    if (!out) {
+      out = await window.electronAPI.saveFile();
+      if (!out) return;
+      set({ outputPath: out });
+    }
+    const args = {
+      input: project.sourcePath,
+      output: out,
+      startSec: project.trim.startSec,
+      endSec: project.trim.endSec,
+      project,
+    };
+    setProgress(0);
+    try {
+      await window.electronAPI.startExport(args);
+      setProgress(1);
+      alert('Export completed');
+    } catch (e: any) {
+      console.error(e);
+      alert('Export failed: ' + e.message);
+      setProgress(null);
+    }
   };
   return (
     <div style={boxStyle}>
@@ -270,7 +307,16 @@ const ExportPanel: React.FC<{ project: ProjectStore; onChange: (p: ProjectStore)
         CRF
         <input type="number" min={0} max={51} value={exp.quality.value} onChange={(e) => set({ quality: { mode: 'crf', value: parseInt(e.target.value) } })} />
       </label>
-      <button disabled={!project.sourcePath} onClick={onExport}>Export</button>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button onClick={chooseOutput}>Choose Output…</button>
+        <span style={{ opacity: 0.8, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis' }}>{exp.outputPath ?? '(not set)'}</span>
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <button disabled={!project.sourcePath || progress !== null} onClick={onExport}>Export</button>
+        {progress !== null && (
+          <span style={{ marginLeft: 8 }}>Progress: {(progress * 100).toFixed(0)}%</span>
+        )}
+      </div>
     </div>
   );
 };

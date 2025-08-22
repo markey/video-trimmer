@@ -103,4 +103,24 @@ function registerIpcHandlers() {
     const meta = extractVideoMeta(probe);
     return { probe, meta };
   });
+
+  ipcMain.handle('dialog:saveFile', async (_e, opts?: { defaultPath?: string }) => {
+    const result = await dialog.showSaveDialog({
+      defaultPath: opts?.defaultPath,
+      filters: [
+        { name: 'MP4', extensions: ['mp4'] },
+        { name: 'All files', extensions: ['*'] },
+      ],
+    });
+    if (result.canceled || !result.filePath) return null;
+    return result.filePath;
+  });
+
+  ipcMain.handle('export:start', async (e, opts: any) => {
+    const { exportWithProgress } = await import('./services/ffmpeg');
+    await exportWithProgress(opts, (ratio) => {
+      e.sender.send('export:progress', { ratio });
+    });
+    return { ok: true };
+  });
 }

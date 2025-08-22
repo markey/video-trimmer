@@ -13,8 +13,12 @@ const api = {
   },
   // Placeholders for later wiring
   ffprobe: async (src: string): Promise<unknown> => ipcRenderer.invoke('media:probe', src),
-  exportVideo: async (_args: unknown): Promise<void> => {
-    throw new Error('export not wired yet');
+  saveFile: async (defaultPath?: string): Promise<string | null> => ipcRenderer.invoke('dialog:saveFile', { defaultPath }),
+  startExport: async (args: any): Promise<{ ok: true }> => ipcRenderer.invoke('export:start', args),
+  onExportProgress: (cb: (ratio: number) => void) => {
+    const handler = (_: any, data: { ratio: number }) => cb(data.ratio);
+    ipcRenderer.on('export:progress', handler);
+    return () => ipcRenderer.off('export:progress', handler);
   },
 };
 
