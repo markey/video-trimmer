@@ -52,7 +52,14 @@ export const App: React.FC = () => {
       </header>
       <main style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 12, padding: 12, flex: '1 1 auto', overflow: 'hidden' }}>
         <section style={{ display: 'grid', gridTemplateRows: 'minmax(240px, 1fr) 160px auto', gap: 12, minHeight: 0 }}>
-          <PreviewPanel sourcePath={project.sourcePath} watermarkText={project.watermark.text} />
+          <PreviewPanel
+            sourcePath={project.sourcePath}
+            watermarkText={project.watermark.text}
+            fps={project.video.fps ?? 30}
+            trim={project.trim}
+            onSetIn={(t) => setProject(p => ({ ...p, trim: { startSec: Math.min(t, p.trim.endSec), endSec: p.trim.endSec } }))}
+            onSetOut={(t) => setProject(p => ({ ...p, trim: { startSec: p.trim.startSec, endSec: Math.max(t, p.trim.startSec) } }))}
+          />
           <TimelinePanel start={project.trim.startSec} end={project.trim.endSec} onChange={(start, end) => setProject(p => ({ ...p, trim: { startSec: start, endSec: end } }))} />
           <MetaPanel project={project} />
         </section>
@@ -67,17 +74,98 @@ export const App: React.FC = () => {
 
 const boxStyle: React.CSSProperties = { background: '#111', border: '1px solid #333', borderRadius: 8, padding: 12 };
 
-const PreviewPanel: React.FC<{ sourcePath: string | null; watermarkText: string }> = ({ sourcePath, watermarkText }) => {
+type PreviewProps = {
+  sourcePath: string | null;
+  watermarkText: string;
+  fps: number;
+  trim: { startSec: number; endSec: number };
+  onSetIn: (t: number) => void;
+  onSetOut: (t: number) => void;
+};
+
+const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermarkText, fps, trim, onSetIn, onSetOut }) => {
   const src = sourcePath ? window.electronAPI.fileUrl(sourcePath) : null;
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const [cur, setCur] = React.useState(0);
+  const [dur, setDur] = React.useState(0);
+  const [playing, setPlaying] = React.useState(false);
+
+  const updateTime = () => {
+    const v = videoRef.current; if (!v) return; setCur(v.currentTime);
+  };
+
+  const togglePlay = async () => {
+    const v = videoRef.current; if (!v) return;
+    try {
+      if (v.paused) {
+        await v.play();
+      } else {
+        v.pause();
+      }
+    } catch (e) {
+      console.warn('Play failed, retrying muted', e);
+      try {
+        v.muted = true;
+        await v.play();
+      } catch (e2) {
+        console.error('Play failed', e2);
+      }
+    }
+  };
+
+  const step = 1 / Math.max(1, Math.round(fps || 30));
+  const seekBy = (delta: number) => {
+    const v = videoRef.current; if (!v) return; v.currentTime = Math.max(0, Math.min((isFinite(v.duration) ? v.duration : Infinity), v.currentTime + delta));
+  };
+
+  const timeStr = (t: number) => {
+    const s = Math.max(0, t);
+    const hh = Math.floor(s / 3600);
+    const mm = Math.floor((s % 3600) / 60);
+    const ss = (s % 60).toFixed(3).padStart(6, '0');
+    return `${hh.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}:${ss}`;
+  };
+
   return (
-    <div style={{ ...boxStyle, position: 'relative', height: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      {!sourcePath && <div style={{ opacity: 0.6 }}>Open a file to preview. mpv integration pending; using HTML5 fallback temporarily.</div>}
+    <div style={{ ...boxStyle, position: 'relative', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      {!sourcePath && <div style={{ opacity: 0.6, margin: 'auto' }}>Open a file to preview. mpv integration pending; using HTML5 fallback temporarily.</div>}
       {src && (
-        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-          {/* Temporary fallback. Replace with libmpv view later. */}
-          <video src={src} controls style={{ width: '100%', height: '100%', background: 'black', objectFit: 'contain' as const }} />
-          <div style={{ position: 'absolute', right: 16, bottom: 16, color: 'white', opacity: 0.5, pointerEvents: 'none' }}>{watermarkText}</div>
-        </div>
+        <>
+          <div style={{ position: 'relative', width: '100%', flex: '1 1 auto', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
+            {/* Temporary fallback. Replace with libmpv view later. */}
+            <video
+              ref={videoRef}
+              src={src}
+              controls={false}
+              playsInline
+              preload="auto"
+              style={{ maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto', background: 'black' }}
+              onTimeUpdate={updateTime}
+              onSeeked={updateTime}
+              onLoadedMetadata={() => { const v = videoRef.current; if (v) { setDur(v.duration || 0); setCur(v.currentTime || 0); } }}
+              onPlay={() => setPlaying(true)}
+              onPause={() => setPlaying(false)}
+              onError={() => {
+                const v = videoRef.current as any;
+                console.error('Video error', v?.error);
+              }}
+            />
+            <div style={{ position: 'absolute', right: 16, bottom: 16, color: 'white', opacity: 0.5, pointerEvents: 'none' }}>{watermarkText}</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 8 }}>
+            <button onClick={() => seekBy(-step)} title="Prev frame">⟨⟨</button>
+            <button onClick={togglePlay}>{playing ? 'Pause' : 'Play'}</button>
+            <button onClick={() => seekBy(step)} title="Next frame">⟩⟩</button>
+            <div style={{ marginLeft: 8, opacity: 0.9 }}>Time: {timeStr(cur)} / {timeStr(dur)}</div>
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button onClick={() => onSetIn(cur)} title="Set In at current">Set Start (In)</button>
+              <button onClick={() => onSetOut(cur)} title="Set Out at current">Set End (Out)</button>
+              <span style={{ opacity: 0.8, fontSize: 12 }}>In: {timeStr(trim.startSec)} | Out: {timeStr(trim.endSec)}</span>
+              <button onClick={() => { const v = videoRef.current; if (v) v.currentTime = trim.startSec; }} title="Jump to In">⇤ In</button>
+              <button onClick={() => { const v = videoRef.current; if (v) v.currentTime = trim.endSec; }} title="Jump to Out">Out ⇥</button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
@@ -86,6 +174,9 @@ const PreviewPanel: React.FC<{ sourcePath: string | null; watermarkText: string 
 const TimelinePanel: React.FC<{ start: number; end: number; onChange: (s: number, e: number) => void }> = ({ start, end, onChange }) => {
   const [localStart, setLocalStart] = useState(start);
   const [localEnd, setLocalEnd] = useState(end);
+
+  React.useEffect(() => { setLocalStart(start); }, [start]);
+  React.useEffect(() => { setLocalEnd(end); }, [end]);
   return (
     <div style={boxStyle}>
       <div style={{ marginBottom: 8 }}>Timeline (stub)</div>
