@@ -134,7 +134,7 @@ const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermarkText, fps, 
       {!sourcePath && <div style={{ opacity: 0.6, margin: 'auto' }}>Open a file to preview. mpv integration pending; using HTML5 fallback temporarily.</div>}
       {src && (
         <>
-          <div style={{ position: 'relative', width: '100%', flex: '1 1 auto', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
+          <div style={{ position: 'relative', width: '100%', flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
             {/* Temporary fallback. Replace with libmpv view later. */}
             <video
               ref={videoRef}
@@ -142,7 +142,7 @@ const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermarkText, fps, 
               controls={false}
               playsInline
               preload="auto"
-              style={{ maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto', background: 'black' }}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center center', background: 'black' }}
               onTimeUpdate={updateTime}
               onSeeked={updateTime}
               onLoadedMetadata={() => { const v = videoRef.current; if (v) { setDur(v.duration || 0); setCur(v.currentTime || 0); } }}
