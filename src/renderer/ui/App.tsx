@@ -43,15 +43,15 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', color: '#eaeaea', background: '#202124', height: '100vh' }}>
+    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', color: '#eaeaea', background: '#202124', height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <header style={{ display: 'flex', gap: 12, padding: 12, borderBottom: '1px solid #333' }}>
         <button onClick={openFile}>Open File</button>
         <div style={{ opacity: 0.8 }}>
           {project.sourcePath ? `Source: ${project.sourcePath}` : 'No file loaded'}
         </div>
       </header>
-      <main style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 12, padding: 12, height: 'calc(100vh - 54px)' }}>
-        <section style={{ display: 'grid', gridTemplateRows: 'minmax(320px, 1fr) 160px auto', gap: 12 }}>
+      <main style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 12, padding: 12, flex: '1 1 auto', overflow: 'hidden' }}>
+        <section style={{ display: 'grid', gridTemplateRows: 'minmax(240px, 1fr) 160px auto', gap: 12, minHeight: 0 }}>
           <PreviewPanel sourcePath={project.sourcePath} watermarkText={project.watermark.text} />
           <TimelinePanel start={project.trim.startSec} end={project.trim.endSec} onChange={(start, end) => setProject(p => ({ ...p, trim: { startSec: start, endSec: end } }))} />
           <MetaPanel project={project} />
@@ -70,12 +70,12 @@ const boxStyle: React.CSSProperties = { background: '#111', border: '1px solid #
 const PreviewPanel: React.FC<{ sourcePath: string | null; watermarkText: string }> = ({ sourcePath, watermarkText }) => {
   const src = sourcePath ? window.electronAPI.fileUrl(sourcePath) : null;
   return (
-    <div style={{ ...boxStyle, position: 'relative' }}>
+    <div style={{ ...boxStyle, position: 'relative', height: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       {!sourcePath && <div style={{ opacity: 0.6 }}>Open a file to preview. mpv integration pending; using HTML5 fallback temporarily.</div>}
       {src && (
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
           {/* Temporary fallback. Replace with libmpv view later. */}
-          <video src={src} controls style={{ width: '100%', height: 'auto', background: 'black' }} />
+          <video src={src} controls style={{ width: '100%', height: '100%', background: 'black', objectFit: 'contain' as const }} />
           <div style={{ position: 'absolute', right: 16, bottom: 16, color: 'white', opacity: 0.5, pointerEvents: 'none' }}>{watermarkText}</div>
         </div>
       )}
