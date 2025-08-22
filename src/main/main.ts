@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, protocol } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -8,12 +8,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let mainWindow: BrowserWindow | null = null;
 
+// Register custom protocol to safely serve local files to the renderer during dev
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'safe-file', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true } },
+]);
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     webPreferences: {
-      preload: path.resolve(__dirname, 'preload.js'),
+      preload: path.resolve(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -44,6 +49,32 @@ app.on('activate', () => {
 });
 
 app.whenReady().then(() => {
+  // Map safe-file://local?p=<absolutePath> to the actual file path
+  protocol.registerFileProtocol('safe-file', (request, callback) => {
+    try {
+      const url = new URL(request.url);
+      let filePath: string;
+      if (process.platform === 'win32') {
+        // Support both safe-file:///C:/path and safe-file://c/path
+        const host = url.hostname; // e.g., 'c' in safe-file://c/Users/...
+        let pathname = decodeURIComponent(url.pathname); // e.g., '/Users/...'
+        if (host) {
+          const drive = host.toUpperCase();
+          filePath = `${drive}:${pathname}`; // 'C:/Users/...'
+        } else {
+          // safe-file:///C:/Users/... => pathname '/C:/Users/...'
+          if (pathname.startsWith('/')) pathname = pathname.slice(1);
+          filePath = pathname;
+        }
+      } else {
+        filePath = decodeURIComponent(url.pathname);
+      }
+      callback(filePath);
+    } catch (e) {
+      callback({ error: -2 }); // net::FAILED
+    }
+  });
+
   registerIpcHandlers();
   createWindow();
 });
@@ -53,8 +84,8 @@ function registerIpcHandlers() {
     const result = await dialog.showOpenDialog({
       properties: ['openFile'],
       filters: [
-        { name: 'Media', extensions: ['mp4', 'mov', 'mkv', 'm4v', 'avi', 'webm'] },
-        { name: 'All Files', extensions: ['*'] },
+        { name: 'All files', extensions: ['*'] },
+        { name: 'Video', extensions: ['mp4','mov','mkv','m4v','avi','webm','mpg','mpeg','ts','m2ts','mts','wmv','flv','3gp','3g2','mxf','ogg','ogv'] },
       ],
     });
     if (result.canceled || result.filePaths.length === 0) return null;

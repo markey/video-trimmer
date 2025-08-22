@@ -8,9 +8,12 @@
   "scripts": {
     "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:main\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
     "dev:renderer": "vite --config vite.renderer.config.ts",
-    "dev:main": "esbuild src/main/main.ts src/main/preload.ts --outdir=out --platform=node --format=esm --sourcemap --bundle --external:electron --out-extension:.js=.js --watch",
-    "build": "rimraf dist out && vite build --config vite.renderer.config.ts && npm run build:main",
-    "build:main": "esbuild src/main/main.ts src/main/preload.ts --outdir=out --platform=node --format=esm --sourcemap --bundle --external:electron --out-extension:.js=.js",
+    "dev:main": "concurrently -k \"npm:watch:main\" \"npm:watch:preload\"",
+    "watch:main": "esbuild src/main/main.ts --outfile=out/main.js --platform=node --format=esm --sourcemap --bundle --external:electron --watch",
+    "watch:preload": "esbuild src/main/preload.ts --outfile=out/preload.cjs --platform=node --format=cjs --sourcemap --bundle --external:electron --watch",
+    "build": "rimraf dist out && vite build --config vite.renderer.config.ts && npm run build:main && npm run build:preload",
+    "build:main": "esbuild src/main/main.ts --outfile=out/main.js --platform=node --format=esm --sourcemap --bundle --external:electron",
+    "build:preload": "esbuild src/main/preload.ts --outfile=out/preload.cjs --platform=node --format=cjs --sourcemap --bundle --external:electron",
     "start": "electron .",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

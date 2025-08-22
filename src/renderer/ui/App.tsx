@@ -8,6 +8,7 @@ declare global {
       openFile: () => Promise<string | null>;
       readTextFile: (p: string) => Promise<string>;
       ffprobe: (src: string) => Promise<unknown>;
+      fileUrl: (p: string) => string;
     };
   }
 }
@@ -67,13 +68,14 @@ export const App: React.FC = () => {
 const boxStyle: React.CSSProperties = { background: '#111', border: '1px solid #333', borderRadius: 8, padding: 12 };
 
 const PreviewPanel: React.FC<{ sourcePath: string | null; watermarkText: string }> = ({ sourcePath, watermarkText }) => {
+  const src = sourcePath ? window.electronAPI.fileUrl(sourcePath) : null;
   return (
     <div style={{ ...boxStyle, position: 'relative' }}>
       {!sourcePath && <div style={{ opacity: 0.6 }}>Open a file to preview. mpv integration pending; using HTML5 fallback temporarily.</div>}
-      {sourcePath && (
+      {src && (
         <div style={{ position: 'relative' }}>
           {/* Temporary fallback. Replace with libmpv view later. */}
-          <video src={sourcePath} controls style={{ width: '100%', height: 'auto', background: 'black' }} />
+          <video src={src} controls style={{ width: '100%', height: 'auto', background: 'black' }} />
           <div style={{ position: 'absolute', right: 16, bottom: 16, color: 'white', opacity: 0.5, pointerEvents: 'none' }}>{watermarkText}</div>
         </div>
       )}
