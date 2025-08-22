@@ -1,0 +1,36 @@
+{
+  "name": "video-editor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minimal, fast, frame-accurate video trimmer with text watermark (Electron + React)",
+  "main": "out/main/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:main\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
+    "dev:renderer": "vite --config vite.renderer.config.ts",
+    "dev:main": "esbuild src/main/main.ts src/main/preload.ts --outdir=out --platform=node --format=cjs --sourcemap --external:electron --watch",
+    "build": "rimraf dist out && vite build --config vite.renderer.config.ts && npm run build:main",
+    "build:main": "esbuild src/main/main.ts src/main/preload.ts --outdir=out --platform=node --format=cjs --sourcemap --external:electron",
+    "start": "electron .",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "@types/node": "^22.5.4",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "concurrently": "^9.0.1",
+    "cross-env": "^7.0.3",
+    "electron": "^31.3.1",
+    "esbuild": "^0.23.0",
+    "rimraf": "^6.0.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2",
+    "wait-on": "^7.2.0"
+  }
+}
