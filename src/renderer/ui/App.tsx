@@ -508,12 +508,76 @@ const ExportPanel: React.FC<{ project: ProjectStore; onChange: (p: ProjectStore)
       if (!out) return;
       set({ outputPath: out });
     }
+    // Pre-render watermark as PNG so export matches preview exactly
+    const wm = project.watermark;
+    let wmImageDataUrl: string | undefined;
+    if (wm.text && wm.text.trim()) {
+      try {
+        const padX = 10; const padY = 6; const radius = 8;
+        // Create measuring canvas
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d')!;
+        // Build a robust font string: quote multi-word families so Canvas parses correctly
+        const families = wm.fontFamily.split(',').map(s => s.trim()).filter(Boolean).map(f => /\s/.test(f) ? `'${f}'` : f).join(', ');
+        ctx.font = `${wm.fontSizePx}px ${families}`;
+        const metrics = ctx.measureText(wm.text);
+        const textW = Math.ceil(metrics.width);
+        const ascent = metrics.actualBoundingBoxAscent || wm.fontSizePx * 0.8;
+        const descent = metrics.actualBoundingBoxDescent || wm.fontSizePx * 0.2;
+        const textH = Math.ceil(ascent + descent);
+        const width = textW + padX * 2;
+        const height = textH + padY * 2;
+        canvas.width = width;
+        canvas.height = height;
+
+        // Draw background pill
+        const bgAlpha = 0.35 * wm.opacity;
+        const r = radius;
+        const bg = canvas.getContext('2d')!;
+        bg.fillStyle = `rgba(0,0,0,${bgAlpha.toFixed(3)})`;
+        bg.beginPath();
+        bg.moveTo(r, 0);
+        bg.lineTo(width - r, 0);
+        bg.quadraticCurveTo(width, 0, width, r);
+        bg.lineTo(width, height - r);
+        bg.quadraticCurveTo(width, height, width - r, height);
+        bg.lineTo(r, height);
+        bg.quadraticCurveTo(0, height, 0, height - r);
+        bg.lineTo(0, r);
+        bg.quadraticCurveTo(0, 0, r, 0);
+        bg.closePath();
+        bg.fill();
+
+        // Draw text with subtle shadow
+        const toRgb = (hex: string) => {
+          const h = hex.replace('#', '');
+          const r = parseInt(h.slice(0, 2), 16);
+          const g = parseInt(h.slice(2, 4), 16);
+          const b = parseInt(h.slice(4, 6), 16);
+          return { r, g, b };
+        };
+        const { r: rr, g: gg, b: bb } = toRgb(wm.color || '#FFFFFF');
+        ctx.font = `${wm.fontSizePx}px ${families}`;
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillStyle = `rgba(${rr},${gg},${bb},${wm.opacity.toFixed(3)})`;
+        ctx.shadowColor = 'rgba(0,0,0,0.6)';
+        ctx.shadowBlur = 2;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 1;
+        ctx.fillText(wm.text, padX, padY + ascent);
+
+        wmImageDataUrl = canvas.toDataURL('image/png');
+      } catch (e) {
+        console.warn('Watermark prerender failed, falling back to drawtext', e);
+      }
+    }
     const args = {
       input: project.sourcePath,
       output: out,
       startSec: project.trim.startSec,
       endSec: project.trim.endSec,
       project,
+      wmImageDataUrl,
     };
     setProgress(0);
     try {

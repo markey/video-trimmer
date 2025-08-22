@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, protocol } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 // For ESM modules, use import.meta.url instead of __dirname
@@ -118,9 +119,26 @@ function registerIpcHandlers() {
 
   ipcMain.handle('export:start', async (e, opts: any) => {
     const { exportWithProgress } = await import('./services/ffmpeg');
-    await exportWithProgress(opts, (ratio) => {
-      e.sender.send('export:progress', { ratio });
-    });
-    return { ok: true };
+    let wmPath: string | undefined;
+    try {
+      if (opts.wmImageDataUrl && typeof opts.wmImageDataUrl === 'string') {
+        const m = /^data:image\/png;base64,(.+)$/.exec(opts.wmImageDataUrl);
+        if (m) {
+          const buf = Buffer.from(m[1], 'base64');
+          const tmp = path.join(os.tmpdir(), `wm_${Date.now()}_${Math.random().toString(36).slice(2)}.png`);
+          await fs.writeFile(tmp, buf);
+          wmPath = tmp;
+        }
+      }
+      const args = { ...opts, wmImagePath: wmPath };
+      await exportWithProgress(args, (ratio) => {
+        e.sender.send('export:progress', { ratio });
+      });
+      return { ok: true };
+    } finally {
+      if (wmPath) {
+        try { await fs.unlink(wmPath); } catch {}
+      }
+    }
   });
 }

@@ -37,7 +37,7 @@ export const defaultProject = (): ProjectStore => ({
   trim: { startSec: 0, endSec: 0 },
   watermark: {
     text: '𝕏 @mark_k',
-    fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif',
+    fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Segoe UI Symbol, Noto Sans Symbols, Noto Sans Math, Roboto, Arial, sans-serif',
     fontSizePx: 48,
     color: '#FFFFFF',
     opacity: 0.85,

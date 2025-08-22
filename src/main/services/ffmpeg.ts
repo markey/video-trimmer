@@ -9,6 +9,7 @@ export interface ExportOptions {
   endSec: number;
   project: ProjectStore;
   fontFile?: string; // optional explicit font path
+  wmImagePath?: string; // optional pre-rendered watermark image (PNG)
 }
 
 export function buildDrawTextFilter(project: ProjectStore, fontFile?: string) {
@@ -26,17 +27,36 @@ export function buildDrawTextFilter(project: ProjectStore, fontFile?: string) {
 }
 
 export function buildFfmpegArgs(opts: ExportOptions): string[] {
-  const { input, output, startSec, endSec, project, fontFile } = opts;
+  const { input, output, startSec, endSec, project, fontFile, wmImagePath } = opts;
   const dur = Math.max(0, endSec - startSec);
-  const vf = buildDrawTextFilter(project, fontFile);
-  const args: string[] = [
-    '-hide_banner',
-    '-y',
-    '-i', input,
-    '-ss', startSec.toString(),
-    '-t', dur.toString(),
-    '-vf', vf,
-  ];
+  const args: string[] = [ '-hide_banner', '-y' ];
+
+  // Inputs first
+  args.push('-i', input);
+  if (wmImagePath) {
+    // Loop the PNG so it spans the entire duration; must appear before -i
+    args.push('-stream_loop', '-1', '-i', wmImagePath);
+  }
+
+  // Then output trim window (applies to combined graph)
+  args.push('-ss', startSec.toString(), '-t', dur.toString());
+
+  if (wmImagePath) {
+    // Overlay pre-rendered PNG watermark
+    const wm = project.watermark;
+    const x = (wm.anchor === 'topLeft' || wm.anchor === 'bottomLeft')
+      ? `${wm.offsetX}`
+      : `main_w-overlay_w-${wm.offsetX}`;
+    const y = (wm.anchor === 'topLeft' || wm.anchor === 'topRight')
+      ? `${wm.offsetY}`
+      : `main_h-overlay_h-${wm.offsetY}`;
+    const filter = `[1:v]format=rgba,setsar=1[wm];[0:v][wm]overlay=${x}:${y}:shortest=1[v]`;
+    args.push('-filter_complex', filter, '-map', '[v]', '-map', '0:a?');
+  } else {
+    // Fallback: draw text directly
+    const vf = buildDrawTextFilter(project, fontFile);
+    args.push('-vf', vf);
+  }
 
   if (project.export.useHardwareAccel) {
     // Simple NVIDIA first; production would detect availability
@@ -44,6 +64,9 @@ export function buildFfmpegArgs(opts: ExportOptions): string[] {
   } else {
     args.push('-c:v', 'libx264', '-preset', 'medium', '-crf', String(project.export.quality.value));
   }
+  args.push('-pix_fmt', 'yuv420p');
+  args.push('-movflags', '+faststart');
+  args.push('-shortest');
   args.push('-c:a', 'aac', '-b:a', '192k', output);
   return args;
 }
@@ -51,6 +74,7 @@ export function buildFfmpegArgs(opts: ExportOptions): string[] {
 export function exportWithProgress(opts: ExportOptions, onProgress: (ratio: number) => void): Promise<void> {
   const ffmpeg = getFfmpegPath();
   const args = buildFfmpegArgs(opts);
+  console.log('ffmpeg args:', args.join(' '));
   const targetDur = Math.max(0, opts.endSec - opts.startSec);
   return new Promise((resolve, reject) => {
     const child = spawn(ffmpeg, args, { windowsHide: true });
