@@ -404,6 +404,8 @@ const sectionTitle: React.CSSProperties = { marginBottom: 8, fontWeight: 600 };
 const TimelinePanel: React.FC<{ start: number; end: number; duration: number; onChange: (s: number, e: number) => void }> = ({ start, end, duration, onChange }) => {
   const [localStart, setLocalStart] = useState(start);
   const [localEnd, setLocalEnd] = useState(end);
+  const [dragging, setDragging] = useState<'start' | 'end' | null>(null);
+  const trackRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => { setLocalStart(start); }, [start]);
   React.useEffect(() => { setLocalEnd(end); }, [end]);
@@ -421,25 +423,141 @@ const TimelinePanel: React.FC<{ start: number; end: number; duration: number; on
   };
 
   const pct = (t: number) => duration > 0 ? (t / duration) * 100 : 0;
-  const bg = `linear-gradient(to right,
-    #24272b 0%,
-    #24272b ${pct(localStart)}%,
-    #6ab0ff ${pct(localStart)}%,
-    #6ab0ff ${pct(localEnd)}%,
-    #24272b ${pct(localEnd)}%,
-    #24272b 100%)`;
+
+  // Handle clicking on the track to move the closest handle
+  const handleTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!trackRef.current || duration <= 0) return;
+
+    const rect = trackRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickPct = (clickX / rect.width) * 100;
+    const clickTime = (clickPct / 100) * duration;
+
+    const startPct = pct(localStart);
+    const endPct = pct(localEnd);
+
+    // Determine which handle is closer to the click
+    const distanceToStart = Math.abs(clickPct - startPct);
+    const distanceToEnd = Math.abs(clickPct - endPct);
+
+    if (distanceToStart <= distanceToEnd) {
+      onStartChange(clickTime);
+    } else {
+      onEndChange(clickTime);
+    }
+  };
+
+  // Handle mouse down on handles
+  const handleMouseDown = (handle: 'start' | 'end') => (e: React.MouseEvent) => {
+    setDragging(handle);
+    e.preventDefault();
+  };
+
+  // Handle global mouse move and up for dragging
+  React.useEffect(() => {
+    if (!dragging || !trackRef.current) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!trackRef.current) return;
+
+      const rect = trackRef.current.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickPct = Math.max(0, Math.min(100, (clickX / rect.width) * 100));
+      const clickTime = (clickPct / 100) * duration;
+
+      if (dragging === 'start') {
+        onStartChange(clickTime);
+      } else {
+        onEndChange(clickTime);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setDragging(null);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [dragging, duration, localStart, localEnd]);
 
   return (
     <div style={boxStyle}>
       <div style={{ marginBottom: 8, fontWeight: 600 }}>Timeline</div>
-      <div style={{ position: 'relative', height: 28, display: 'grid', alignItems: 'center' }}>
-        {/* Overlapped dual-range to emulate a range slider */}
-        <input type="range" min={0} max={Math.max(0, duration) || 0} step={0.001} value={localStart}
-          onChange={(e) => onStartChange(parseFloat(e.target.value))}
-          style={{ position: 'absolute', inset: 0, width: '100%', height: 6, borderRadius: 4, background: bg }} />
-        <input type="range" min={0} max={Math.max(0, duration) || 0} step={0.001} value={localEnd}
-          onChange={(e) => onEndChange(parseFloat(e.target.value))}
-          style={{ position: 'absolute', inset: 0, width: '100%', height: 6, borderRadius: 4, background: 'transparent' }} />
+      <div
+        ref={trackRef}
+        onClick={handleTrackClick}
+        style={{
+          position: 'relative',
+          height: 28,
+          display: 'grid',
+          alignItems: 'center',
+          cursor: dragging ? 'grabbing' : 'pointer'
+        }}
+      >
+        {/* Track background showing only the selected range in blue */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            height: 6,
+            borderRadius: 4,
+            background: `linear-gradient(to right,
+              #24272b 0%,
+              #24272b ${pct(localStart)}%,
+              #6ab0ff ${pct(localStart)}%,
+              #6ab0ff ${pct(localEnd)}%,
+              #24272b ${pct(localEnd)}%,
+              #24272b 100%)`,
+            pointerEvents: 'none'
+          }}
+        />
+
+        {/* Start handle - positioned on the track */}
+        <div
+          onMouseDown={handleMouseDown('start')}
+          style={{
+            position: 'absolute',
+            left: `${pct(localStart)}%`,
+            top: 0,
+            transform: 'translateX(-50%)',
+            width: 16,
+            height: 16,
+            background: dragging === 'start' ? '#8bb8ff' : '#6ab0ff',
+            borderRadius: '50%',
+            cursor: 'grab',
+            pointerEvents: 'auto',
+            zIndex: 2,
+            border: '2px solid #333',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+          }}
+          title={`Start: ${localStart.toFixed(3)}s`}
+        />
+
+        {/* End handle - positioned on the track */}
+        <div
+          onMouseDown={handleMouseDown('end')}
+          style={{
+            position: 'absolute',
+            left: `${pct(localEnd)}%`,
+            top: 0,
+            transform: 'translateX(-50%)',
+            width: 16,
+            height: 16,
+            background: dragging === 'end' ? '#8bb8ff' : '#6ab0ff',
+            borderRadius: '50%',
+            cursor: 'grab',
+            pointerEvents: 'auto',
+            zIndex: 2,
+            border: '2px solid #333',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+          }}
+          title={`End: ${localEnd.toFixed(3)}s`}
+        />
       </div>
       <div style={{ display: 'flex', gap: 12, marginTop: 8, alignItems: 'center' }}>
         <label>
