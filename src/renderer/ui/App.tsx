@@ -223,11 +223,11 @@ const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermark, fps, trim
 
   return (
     <div style={{ ...boxStyle, position: 'relative', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      {!sourcePath && <div style={{ opacity: 0.6, margin: 'auto' }}>Open a file to preview. mpv integration pending; using HTML5 fallback temporarily.</div>}
+      {!sourcePath && <div style={{ opacity: 0.6, margin: 'auto' }}>Open a file to preview.</div>}
       {src && (
         <>
           <div style={{ position: 'relative', width: '100%', flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center', overflow: 'hidden', borderRadius: 6, background: '#000' }}>
-            {/* Temporary fallback. Replace with libmpv view later. */}
+            {/* HTML5 video player for video preview and playback control */}
             <video
               ref={videoRef}
               src={src}

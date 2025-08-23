@@ -3,7 +3,7 @@ Video Trimmer (Electron + React)
 Minimal, frame-accurate trimmer with text watermark and video downloading capabilities. Scaffold includes:
 
 - Electron main + preload with safe IPC.
-- React UI skeleton: preview (HTML5 fallback), timeline stub, watermark and export panels.
+- React UI skeleton: preview, timeline stub, watermark and export panels.
 - Node services (stubs) for ffprobe and ffmpeg with command builder per blueprint.
 - **NEW:** Video download functionality using yt-dlp for downloading videos from URLs.
 
@@ -36,7 +36,7 @@ Binary dependencies
 
 - **FFmpeg and ffprobe**: Must be available on PATH, or place binaries under `bin/ffmpeg(.exe)` and `bin/ffprobe(.exe)`.
 - **yt-dlp**: Required for video downloading functionality. Must be available on PATH, or place binary under `bin/yt-dlp(.exe)`.
-- mpv integration is pending. The preview currently uses an HTML5 video as a placeholder.
+
 
 ## Download Usage
 
@@ -55,5 +55,5 @@ Planned next steps
 - Wire ffprobe IPC: read FPS, duration, resolution, codecs and store in project.
 - Thumbnail generator and keyframe indexer.
 - Export worker: streaming progress to renderer and cancellation.
-- libmpv preview bridge for frame-accurate stepping.
+
 
