@@ -292,7 +292,15 @@ const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermark, fps, trim
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <button style={btnStyle} onClick={() => seekBy(-1)} title="Back 1s">-1s</button>
               <button style={btnStyle} onClick={() => seekBy(-step)} title="Prev frame">⟨</button>
-              <button style={{ ...btnStyle, padding: '6px 14px', fontWeight: 600 }} onClick={togglePlay}>{playing ? 'Pause ⏸' : 'Play ▶'}</button>
+              {/* Play/Pause with stable width to avoid layout shift */}
+              <button
+                style={{ ...btnStyle, padding: '6px 14px', fontWeight: 600, display: 'grid', placeItems: 'center' }}
+                onClick={togglePlay}
+              >
+                <span style={{ gridArea: '1 / 1' }}>{playing ? 'Pause ⏸' : 'Play ▶'}</span>
+                {/* Hidden widest label reserves width */}
+                <span aria-hidden style={{ gridArea: '1 / 1', visibility: 'hidden', whiteSpace: 'nowrap' }}>Pause ⏸</span>
+              </button>
               <button style={btnStyle} onClick={() => seekBy(step)} title="Next frame">⟩</button>
               <button style={btnStyle} onClick={() => seekBy(1)} title="Forward 1s">+1s</button>
 
@@ -311,7 +319,16 @@ const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermark, fps, trim
                 Vol
                 <input type="range" min={0} max={1} step={0.01} value={muted ? 0 : volume} onChange={(e) => { setVolume(parseFloat(e.target.value)); if (muted) setMuted(false); }} style={{ width: 100 }} />
               </label>
-              <button style={btnStyle} onClick={() => { const v = videoRef.current; setMuted(m => { const next = !m; if (v) v.muted = next; return next; }); }} title={muted ? 'Unmute' : 'Mute'}>{muted ? 'Unmute' : 'Mute'}</button>
+              {/* Mute/Unmute with stable width to avoid layout shift */}
+              <button
+                style={{ ...btnStyle, display: 'grid', placeItems: 'center' }}
+                onClick={() => { const v = videoRef.current; setMuted(m => { const next = !m; if (v) v.muted = next; return next; }); }}
+                title={muted ? 'Unmute' : 'Mute'}
+              >
+                <span style={{ gridArea: '1 / 1' }}>{muted ? 'Unmute' : 'Mute'}</span>
+                {/* Hidden widest label reserves width */}
+                <span aria-hidden style={{ gridArea: '1 / 1', visibility: 'hidden', whiteSpace: 'nowrap' }}>Unmute</span>
+              </button>
 
               <div style={{ width: 1, height: 20, background: '#333', margin: '0 6px' }} />
 
