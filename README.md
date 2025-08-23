@@ -1,10 +1,19 @@
 Video Trimmer (Electron + React)
 
-Minimal, frame-accurate trimmer with text watermark. Scaffold includes:
+Minimal, frame-accurate trimmer with text watermark and video downloading capabilities. Scaffold includes:
 
 - Electron main + preload with safe IPC.
 - React UI skeleton: preview (HTML5 fallback), timeline stub, watermark and export panels.
 - Node services (stubs) for ffprobe and ffmpeg with command builder per blueprint.
+- **NEW:** Video download functionality using yt-dlp for downloading videos from URLs.
+
+## Features
+
+- **Download**: Download videos from URLs using yt-dlp (supports YouTube, Vimeo, and many other sites)
+- **Trim**: Frame-accurate video trimming with precise start/end time controls
+- **Watermark**: Add customizable text watermarks with font, size, color, opacity, and positioning
+- **Export**: Export trimmed videos with watermark in MP4 format using FFmpeg
+- **Preview**: Real-time video preview with playback controls
 
 Getting started
 
@@ -25,8 +34,21 @@ Getting started
 
 Binary dependencies
 
-- FFmpeg and ffprobe must be available on PATH, or place binaries under `bin/ffmpeg(.exe)` and `bin/ffprobe(.exe)`.
+- **FFmpeg and ffprobe**: Must be available on PATH, or place binaries under `bin/ffmpeg(.exe)` and `bin/ffprobe(.exe)`.
+- **yt-dlp**: Required for video downloading functionality. Must be available on PATH, or place binary under `bin/yt-dlp(.exe)`.
 - mpv integration is pending. The preview currently uses an HTML5 video as a placeholder.
+
+## Download Usage
+
+The download panel allows you to download videos from supported URLs:
+
+1. Click "Choose Output..." to select where to save the downloaded video
+2. Enter a video URL (YouTube, Vimeo, etc.)
+3. Click "Download" to start the download
+4. Progress will be shown with percentage, speed, and estimated time remaining
+5. Once downloaded, the video will automatically be loaded into the editor for trimming
+
+**Supported sites**: YouTube, Vimeo, Dailymotion, Facebook, Instagram, Twitter, TikTok, and hundreds more (see [yt-dlp supported sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)).
 
 Planned next steps
 

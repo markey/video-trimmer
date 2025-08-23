@@ -2,30 +2,47 @@ import React, { useState } from 'react';
 import type { ProjectStore } from '@shared/types';
 import { defaultProject } from '@shared/types';
 
+/**
+ * TypeScript declarations for the secure Electron IPC API.
+ * This provides type-safe access to main process functionality from the renderer.
+ */
 declare global {
   interface Window {
     electronAPI: {
-      openFile: () => Promise<string | null>;
-      readTextFile: (p: string) => Promise<string>;
-      ffprobe: (src: string) => Promise<unknown>;
-      fileUrl: (p: string) => string;
-      saveFile: (defaultPath?: string) => Promise<string | null>;
-      startExport: (args: any) => Promise<{ ok: true }>;
-      onExportProgress: (cb: (ratio: number) => void) => () => void;
-      startDownload: (args: { url: string; outputPath: string }) => Promise<{ ok: true }>;
-      onDownloadProgress: (cb: (p: { phase: string; ratio?: number; speed?: string; eta?: string }) => void) => () => void;
+      openFile: () => Promise<string | null>; // Open file dialog for video selection
+      readTextFile: (p: string) => Promise<string>; // Read text file contents
+      ffprobe: (src: string) => Promise<unknown>; // Analyze video file metadata
+      fileUrl: (p: string) => string; // Convert file path to safe browser URL
+      saveFile: (defaultPath?: string) => Promise<string | null>; // Save file dialog
+      startExport: (args: any) => Promise<{ ok: true }>; // Export video with watermark
+      onExportProgress: (cb: (ratio: number) => void) => () => void; // Export progress listener
+      startDownload: (args: { url: string; outputPath: string }) => Promise<{ ok: true }>; // Download video from URL
+      onDownloadProgress: (cb: (p: { phase: string; ratio?: number; speed?: string; eta?: string }) => void) => () => void; // Download progress listener
     };
   }
 }
 
+/**
+ * Main application component for the Video Trimmer.
+ * Manages the overall application state and coordinates between different panels.
+ * Features include video download, trimming, watermarking, and export.
+ */
 export const App: React.FC = () => {
   const [project, setProject] = useState<ProjectStore>(defaultProject());
 
+  /**
+   * Handles opening a video file for editing.
+   * Loads the file and extracts metadata using ffprobe for video properties.
+   */
   const openFile = async () => {
     const file = await window.electronAPI.openFile();
     if (!file) return;
+
+    // Update project with the selected file path
     setProject((p) => ({ ...p, sourcePath: file }));
+
     try {
+      // Analyze the video file to extract metadata (duration, fps, resolution, etc.)
       const res = (await (window as any).electronAPI.ffprobe(file)) as { meta: any };
       setProject((p) => ({
         ...p,
@@ -37,6 +54,7 @@ export const App: React.FC = () => {
           height: res.meta.height,
           codec: res.meta.codec,
         },
+        // Initialize trim range to full video duration
         trim: {
           startSec: 0,
           endSec: res.meta.durationSec ?? 0,
@@ -435,60 +453,104 @@ const MetaPanel: React.FC<{ project: ProjectStore }> = ({ project }) => {
   );
 };
 
+/**
+ * Download panel component for downloading videos from URLs using yt-dlp.
+ * Provides URL input, output path selection, and real-time download progress.
+ * Automatically loads downloaded videos into the editor for immediate editing.
+ */
 const DownloadPanel: React.FC<{ onDownloaded: (path: string) => void; onProbe: (meta: any) => void }> = ({ onDownloaded, onProbe }) => {
-  const [url, setUrl] = useState('');
-  const [outPath, setOutPath] = useState<string | undefined>(undefined);
-  const [progress, setProgress] = useState<{ phase: string; ratio?: number; speed?: string; eta?: string } | null>(null);
+  const [url, setUrl] = useState(''); // URL of the video to download
+  const [outPath, setOutPath] = useState<string | undefined>(undefined); // Selected output file path
+  const [progress, setProgress] = useState<{ phase: string; ratio?: number; speed?: string; eta?: string } | null>(null); // Current download progress
+
+  // Set up download progress listener on component mount
   React.useEffect(() => {
     const off = window.electronAPI.onDownloadProgress((p) => setProgress(p));
-    return () => { off?.(); };
+    return () => { off?.(); }; // Clean up listener on unmount
   }, []);
 
+  /**
+   * Opens a save dialog for the user to choose where to save the downloaded video.
+   */
   const chooseOutput = async () => {
-    // Let user choose final MP4 path
     const p = await window.electronAPI.saveFile(outPath);
     if (p) setOutPath(p);
   };
 
+  /**
+   * Starts the video download process using yt-dlp.
+   * Handles file path selection, initiates download, and processes the downloaded file.
+   */
   const start = async () => {
     if (!url) return alert('Enter a URL');
+
+    // Ensure we have an output path
     let p = outPath;
     if (!p) {
       p = await window.electronAPI.saveFile();
       if (!p) return;
       setOutPath(p);
     }
+
+    // Initialize progress and start download
     setProgress({ phase: 'downloading', ratio: 0 });
     try {
       await window.electronAPI.startDownload({ url, outputPath: p! });
       setProgress({ phase: 'completed', ratio: 1 });
+
+      // Notify parent component that download is complete
       onDownloaded(p!);
+
+      // Analyze the downloaded video to extract metadata
       const res = await window.electronAPI.ffprobe(p!);
-      // @ts-ignore
+      // @ts-ignore - ffprobe result structure
       onProbe(res.meta);
     } catch (e: any) {
       console.error(e);
       alert('Download failed: ' + e.message);
-      setProgress(null);
+      setProgress(null); // Reset progress on error
     }
   };
 
   return (
     <div style={{ ...boxStyle, marginBottom: 12 }}>
       <div style={sectionTitle}>Download</div>
+
+      {/* URL input field for video source */}
       <div style={fieldRow}>
         <label style={labelStyle}>URL</label>
-        <input style={inputStyle} type="url" placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} />
+        <input
+          style={inputStyle}
+          type="url"
+          placeholder="https://…"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+        />
       </div>
+
+      {/* Output path selection */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
         <button style={btnStyle} onClick={chooseOutput}>Choose Output…</button>
-        <span style={{ opacity: 0.8, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis' }}>{outPath ?? '(not set)'}</span>
+        <span style={{ opacity: 0.8, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {outPath ?? '(not set)'}
+        </span>
       </div>
+
+      {/* Download button and progress display */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <button style={btnStyle} disabled={!url || !!(progress && progress.phase !== 'completed')} onClick={start}>Download</button>
+        <button
+          style={btnStyle}
+          disabled={!url || !!(progress && progress.phase !== 'completed')}
+          onClick={start}
+        >
+          Download
+        </button>
+
+        {/* Progress information display */}
         {progress && (
           <span style={{ opacity: 0.85, fontSize: 12 }}>
-            {progress.phase}{progress.ratio != null ? ` ${(progress.ratio * 100).toFixed(0)}%` : ''}
+            {progress.phase}
+            {progress.ratio != null ? ` ${(progress.ratio * 100).toFixed(0)}%` : ''}
             {progress.speed ? ` • ${progress.speed}` : ''}
             {progress.eta ? ` • ETA ${progress.eta}` : ''}
           </span>

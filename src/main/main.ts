@@ -4,16 +4,28 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
+/**
+ * Main Electron process entry point for the Video Trimmer application.
+ * Handles window creation, IPC communication, and integrates with video processing services.
+ */
+
 // For ESM modules, use import.meta.url instead of __dirname
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let mainWindow: BrowserWindow | null = null;
 
-// Register custom protocol to safely serve local files to the renderer during dev
+/**
+ * Register custom protocol to safely serve local files to the renderer during development.
+ * This allows the renderer to access local video files without security restrictions.
+ */
 protocol.registerSchemesAsPrivileged([
   { scheme: 'safe-file', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true } },
 ]);
 
+/**
+ * Creates the main application window with security settings and loads the renderer.
+ * Sets up web preferences for security including context isolation and node integration disabled.
+ */
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -81,6 +93,10 @@ app.whenReady().then(() => {
   createWindow();
 });
 
+/**
+ * Registers all IPC (Inter-Process Communication) handlers for the main process.
+ * These handlers provide safe communication between the renderer process and system resources.
+ */
 function registerIpcHandlers() {
   ipcMain.handle('dialog:openFile', async () => {
     const result = await dialog.showOpenDialog({
@@ -142,6 +158,10 @@ function registerIpcHandlers() {
     }
   });
 
+  /**
+   * Handles video download requests from the renderer process.
+   * Uses yt-dlp to download videos from URLs and streams progress back to the UI.
+   */
   ipcMain.handle('download:start', async (e, opts: { url: string; outputPath: string }) => {
     const { startDownload } = await import('./services/downloader');
     await startDownload({ url: opts.url, outputPath: opts.outputPath }, (p) => {
