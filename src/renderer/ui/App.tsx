@@ -19,6 +19,7 @@ declare global {
       onExportProgress: (cb: (ratio: number) => void) => () => void; // Export progress listener
       startDownload: (args: { url: string; outputPath: string }) => Promise<{ ok: true }>; // Download video from URL
       onDownloadProgress: (cb: (p: { phase: string; ratio?: number; speed?: string; eta?: string }) => void) => () => void; // Download progress listener
+      setTitle: (title: string) => Promise<void>; // Set window title
     };
   }
 }
@@ -30,6 +31,14 @@ declare global {
  */
 export const App: React.FC = () => {
   const [project, setProject] = useState<ProjectStore>(defaultProject());
+
+  // Update window title when sourcePath changes
+  React.useEffect(() => {
+    const title = project.sourcePath
+      ? `Video Trimmer  —  "${project.sourcePath.split(/[/\\]/).pop() || project.sourcePath}"`
+      : 'Video Trimmer';
+    window.electronAPI.setTitle(title);
+  }, [project.sourcePath]);
 
   /**
    * Handles opening a video file for editing.
@@ -69,16 +78,13 @@ export const App: React.FC = () => {
   return (
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif', color: '#eaeaea', background: '#202124', height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, borderBottom: '1px solid #333' }}>
-        {/* Left group: button + filename (flex-grow) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
+        {/* Left group: button only */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
           <button style={btnStyle} onClick={openFile}>Open File</button>
-          <div style={{ opacity: 0.8, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-            {project.sourcePath ? `Source: ${project.sourcePath}` : 'No file loaded'}
-          </div>
         </div>
 
-        {/* Center: flourish (fixed-ish width), stays centered due to left/right flex spacers */}
-        <div style={{ flex: '0 1 520px', maxWidth: '60%' }}>
+        {/* Center: flourish (fixed width), properly centered */}
+        <div style={{ flex: '0 0 520px', width: 520 }}>
           <HeaderFlourish height={44} />
         </div>
 

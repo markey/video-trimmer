@@ -26,6 +26,7 @@ const api = {
     ipcRenderer.on('download:progress', handler);
     return () => ipcRenderer.off('download:progress', handler);
   },
+  setTitle: async (title: string): Promise<void> => ipcRenderer.invoke('window:setTitle', title),
 };
 
 declare global {

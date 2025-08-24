@@ -294,4 +294,10 @@ function registerIpcHandlers() {
     });
     return { ok: true };
   });
+
+  ipcMain.handle('window:setTitle', async (_e, title: string) => {
+    if (mainWindow) {
+      mainWindow.setTitle(title);
+    }
+  });
 }
