@@ -1,5 +1,7 @@
 Video Trimmer (Electron + React)
 
+![Screenshot](screenshot.jpeg)
+
 Minimal, frame-accurate trimmer with text watermark and video downloading capabilities. Scaffold includes:
 
 - Electron main + preload with safe IPC.
