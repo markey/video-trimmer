@@ -273,12 +273,14 @@ const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermark, fps, trim
               ref={videoRef}
               src={src}
               controls={false}
+              autoPlay
               playsInline
               preload="auto"
               style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center center', background: 'black' }}
+              onClick={togglePlay}
               onTimeUpdate={updateTime}
               onSeeked={updateTime}
-              onLoadedMetadata={() => { const v = videoRef.current; if (v) { setDur(v.duration || 0); setCur(v.currentTime || 0); } recomputePadding(); }}
+              onLoadedMetadata={async () => { const v = videoRef.current; if (v) { setDur(v.duration || 0); setCur(v.currentTime || 0); } recomputePadding(); try { await videoRef.current?.play(); } catch { /* ignore autoplay restrictions */ } }}
               onPlay={() => setPlaying(true)}
               onPause={() => setPlaying(false)}
               onError={() => {

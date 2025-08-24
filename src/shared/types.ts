@@ -38,7 +38,7 @@ export const defaultProject = (): ProjectStore => ({
   watermark: {
     text: '𝕏 @mark_k',
     fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Segoe UI Symbol, Noto Sans Symbols, Noto Sans Math, Roboto, Arial, sans-serif',
-    fontSizePx: 48,
+    fontSizePx: 80,
     color: '#FFFFFF',
     opacity: 0.85,
     anchor: 'bottomRight',
