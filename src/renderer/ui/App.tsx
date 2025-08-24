@@ -127,7 +127,7 @@ const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermark, fps, trim
   const [muted, setMuted] = React.useState(false);
   const [isScrubbing, setIsScrubbing] = React.useState(false);
   const wasPlayingRef = React.useRef(false);
-  const [pad, setPad] = React.useState({ top: 0, left: 0 });
+  const [viewport, setViewport] = React.useState({ top: 0, left: 0, scale: 1 });
 
   // Compute the displayed video content padding (letterboxing) relative to container
   const recomputePadding = React.useCallback(() => {
@@ -138,19 +138,21 @@ const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermark, fps, trim
     const ch = el.clientHeight;
     const vw = v.videoWidth || 0;
     const vh = v.videoHeight || 0;
-    if (!cw || !ch || !vw || !vh) { setPad({ top: 0, left: 0 }); return; }
+    if (!cw || !ch || !vw || !vh) { setViewport({ top: 0, left: 0, scale: 1 }); return; }
     const containerAspect = cw / ch;
     const videoAspect = vw / vh;
     if (containerAspect > videoAspect) {
       // Limited by height, horizontal letterboxing
       const contentWidth = ch * videoAspect;
       const left = Math.max(0, (cw - contentWidth) / 2);
-      setPad({ top: 0, left });
+      const scale = contentWidth / vw;
+      setViewport({ top: 0, left, scale });
     } else {
       // Limited by width, vertical letterboxing
       const contentHeight = cw / videoAspect;
       const top = Math.max(0, (ch - contentHeight) / 2);
-      setPad({ top, left: 0 });
+      const scale = contentHeight / vh;
+      setViewport({ top, left: 0, scale });
     }
   }, []);
 
@@ -291,17 +293,17 @@ const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermark, fps, trim
                 color: watermark.color,
                 opacity: watermark.opacity,
                 fontFamily: watermark.fontFamily,
-                fontSize: watermark.fontSizePx,
-                textShadow: '0 1px 2px rgba(0,0,0,0.6), 0 0 1px rgba(0,0,0,0.6)',
+                fontSize: Math.max(1, watermark.fontSizePx * viewport.scale),
+                textShadow: `0 ${1 * viewport.scale}px ${2 * viewport.scale}px rgba(0,0,0,0.6), 0 0 ${1 * viewport.scale}px rgba(0,0,0,0.6)`,
                 background: 'rgba(0,0,0,0.35)',
-                padding: '6px 10px',
-                borderRadius: 8,
+                padding: `${6 * viewport.scale}px ${10 * viewport.scale}px`,
+                borderRadius: 8 * viewport.scale,
                 pointerEvents: 'none',
                 whiteSpace: 'pre',
-                ...(watermark.anchor === 'topLeft' ? { top: pad.top + watermark.offsetY, left: pad.left + watermark.offsetX }
-                  : watermark.anchor === 'topRight' ? { top: pad.top + watermark.offsetY, right: pad.left + watermark.offsetX }
-                  : watermark.anchor === 'bottomLeft' ? { bottom: pad.top + watermark.offsetY, left: pad.left + watermark.offsetX }
-                  : { bottom: pad.top + watermark.offsetY, right: pad.left + watermark.offsetX }),
+                ...(watermark.anchor === 'topLeft' ? { top: viewport.top + watermark.offsetY * viewport.scale, left: viewport.left + watermark.offsetX * viewport.scale }
+                  : watermark.anchor === 'topRight' ? { top: viewport.top + watermark.offsetY * viewport.scale, right: viewport.left + watermark.offsetX * viewport.scale }
+                  : watermark.anchor === 'bottomLeft' ? { bottom: viewport.top + watermark.offsetY * viewport.scale, left: viewport.left + watermark.offsetX * viewport.scale }
+                  : { bottom: viewport.top + watermark.offsetY * viewport.scale, right: viewport.left + watermark.offsetX * viewport.scale }),
               }}>
                 {watermark.text}
               </div>
