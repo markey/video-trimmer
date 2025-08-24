@@ -117,6 +117,7 @@ type PreviewProps = {
 const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermark, fps, trim, onSetIn, onSetOut }) => {
   const src = sourcePath ? window.electronAPI.fileUrl(sourcePath) : null;
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
   const [cur, setCur] = React.useState(0);
   const [dur, setDur] = React.useState(0);
   const [playing, setPlaying] = React.useState(false);
@@ -126,6 +127,32 @@ const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermark, fps, trim
   const [muted, setMuted] = React.useState(false);
   const [isScrubbing, setIsScrubbing] = React.useState(false);
   const wasPlayingRef = React.useRef(false);
+  const [pad, setPad] = React.useState({ top: 0, left: 0 });
+
+  // Compute the displayed video content padding (letterboxing) relative to container
+  const recomputePadding = React.useCallback(() => {
+    const v = videoRef.current;
+    const el = containerRef.current;
+    if (!v || !el) return;
+    const cw = el.clientWidth;
+    const ch = el.clientHeight;
+    const vw = v.videoWidth || 0;
+    const vh = v.videoHeight || 0;
+    if (!cw || !ch || !vw || !vh) { setPad({ top: 0, left: 0 }); return; }
+    const containerAspect = cw / ch;
+    const videoAspect = vw / vh;
+    if (containerAspect > videoAspect) {
+      // Limited by height, horizontal letterboxing
+      const contentWidth = ch * videoAspect;
+      const left = Math.max(0, (cw - contentWidth) / 2);
+      setPad({ top: 0, left });
+    } else {
+      // Limited by width, vertical letterboxing
+      const contentHeight = cw / videoAspect;
+      const top = Math.max(0, (ch - contentHeight) / 2);
+      setPad({ top, left: 0 });
+    }
+  }, []);
 
   const updateTime = () => {
     const v = videoRef.current; if (!v) return; setCur(v.currentTime);
@@ -170,6 +197,18 @@ const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermark, fps, trim
     const v = videoRef.current; if (!v) return;
     v.muted = muted;
   }, [muted]);
+
+  // Recompute padding on window resize and when container size changes
+  React.useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => recomputePadding());
+    ro.observe(el);
+    const onWin = () => recomputePadding();
+    window.addEventListener('resize', onWin);
+    recomputePadding();
+    return () => { ro.disconnect(); window.removeEventListener('resize', onWin); };
+  }, [recomputePadding]);
 
   // Loop within trim if enabled
   React.useEffect(() => {
@@ -226,7 +265,7 @@ const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermark, fps, trim
       {!sourcePath && <div style={{ opacity: 0.6, margin: 'auto' }}>Open a file to preview.</div>}
       {src && (
         <>
-          <div style={{ position: 'relative', width: '100%', flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center', overflow: 'hidden', borderRadius: 6, background: '#000' }}>
+          <div ref={containerRef} style={{ position: 'relative', width: '100%', flex: '1 1 auto', minHeight: 0, display: 'grid', placeItems: 'center', overflow: 'hidden', borderRadius: 6, background: '#000' }}>
             {/* HTML5 video player for video preview and playback control */}
             <video
               ref={videoRef}
@@ -237,7 +276,7 @@ const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermark, fps, trim
               style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center center', background: 'black' }}
               onTimeUpdate={updateTime}
               onSeeked={updateTime}
-              onLoadedMetadata={() => { const v = videoRef.current; if (v) { setDur(v.duration || 0); setCur(v.currentTime || 0); } }}
+              onLoadedMetadata={() => { const v = videoRef.current; if (v) { setDur(v.duration || 0); setCur(v.currentTime || 0); } recomputePadding(); }}
               onPlay={() => setPlaying(true)}
               onPause={() => setPlaying(false)}
               onError={() => {
@@ -259,10 +298,10 @@ const PreviewPanel: React.FC<PreviewProps> = ({ sourcePath, watermark, fps, trim
                 borderRadius: 8,
                 pointerEvents: 'none',
                 whiteSpace: 'pre',
-                ...(watermark.anchor === 'topLeft' ? { top: watermark.offsetY, left: watermark.offsetX }
-                  : watermark.anchor === 'topRight' ? { top: watermark.offsetY, right: watermark.offsetX }
-                  : watermark.anchor === 'bottomLeft' ? { bottom: watermark.offsetY, left: watermark.offsetX }
-                  : { bottom: watermark.offsetY, right: watermark.offsetX }),
+                ...(watermark.anchor === 'topLeft' ? { top: pad.top + watermark.offsetY, left: pad.left + watermark.offsetX }
+                  : watermark.anchor === 'topRight' ? { top: pad.top + watermark.offsetY, right: pad.left + watermark.offsetX }
+                  : watermark.anchor === 'bottomLeft' ? { bottom: pad.top + watermark.offsetY, left: pad.left + watermark.offsetX }
+                  : { bottom: pad.top + watermark.offsetY, right: pad.left + watermark.offsetX }),
               }}>
                 {watermark.text}
               </div>
