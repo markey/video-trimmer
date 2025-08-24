@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, protocol } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, protocol, Menu, shell } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -53,6 +53,130 @@ function createWindow() {
   });
 }
 
+/**
+ * Creates and sets the application menu with relevant items for the video editor.
+ * Includes File operations, View options, and Help with About dialog.
+ */
+function createApplicationMenu() {
+  const template: Electron.MenuItemConstructorOptions[] = [
+    // File Menu
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Open Video...',
+          accelerator: 'CmdOrCtrl+O',
+          click: async () => {
+            if (!mainWindow) return;
+            const result = await dialog.showOpenDialog(mainWindow, {
+              properties: ['openFile'],
+              filters: [
+                { name: 'Video Files', extensions: ['mp4','mov','mkv','m4v','avi','webm','mpg','mpeg','ts','m2ts','mts','wmv','flv','3gp','3g2','mxf','ogg','ogv'] },
+                { name: 'All Files', extensions: ['*'] },
+              ],
+            });
+            if (!result.canceled && result.filePaths.length > 0) {
+              mainWindow.webContents.send('file:open', result.filePaths[0]);
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Save As...',
+          accelerator: 'CmdOrCtrl+S',
+          click: () => {
+            if (!mainWindow) return;
+            mainWindow.webContents.send('file:save');
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Exit',
+          accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Alt+F4',
+          click: () => app.quit()
+        }
+      ]
+    },
+    // Edit Menu
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { type: 'separator' },
+        { role: 'selectAll' }
+      ]
+    },
+    // View Menu
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' }
+      ]
+    },
+    // Help Menu
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'About Video Trimmer',
+          click: () => {
+            if (!mainWindow) return;
+            dialog.showMessageBox(mainWindow, {
+              type: 'info',
+              title: 'About Video Trimmer',
+              message: 'Video Trimmer',
+              detail: `A minimal, frame-accurate video trimmer with text watermark and download capabilities.
+
+Built with Electron + React
+GitHub: https://github.com/markey/video-trimmer
+
+Created by Mark Kretschmann
+X: @mark_k
+Email: kretschmann@kde.org`,
+              buttons: ['OK'],
+              icon: process.platform === 'darwin' ? undefined : path.join(__dirname, '../../build/icon.png').replace(/\\/g, '/')
+            });
+          }
+        }
+      ]
+    }
+  ];
+
+  // On macOS, add the app menu at the beginning
+  if (process.platform === 'darwin') {
+    template.unshift({
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    });
+  }
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
@@ -90,6 +214,7 @@ app.whenReady().then(() => {
   });
 
   registerIpcHandlers();
+  createApplicationMenu();
   createWindow();
 });
 
