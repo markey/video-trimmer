@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { existsSync, rmSync, mkdirSync, copyFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, rmSync, mkdirSync, copyFileSync, readdirSync, statSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve, basename } from 'node:path';
 import { platform, arch } from 'node:os';
 
@@ -24,7 +24,7 @@ async function runCommand(command: string, cwd?: string): Promise<void> {
 }
 
 function getBuildConfig(): BuildConfig {
-  const packageJson = JSON.parse(require('fs').readFileSync('package.json', 'utf8'));
+  const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
   
   return {
     platform: platform(),
@@ -152,7 +152,7 @@ start "" "electron.exe" "%~dp0\\main.js"
 `;
   
   const launcherPath = join(appDir, `${config.appName}.bat`);
-  require('fs').writeFileSync(launcherPath, launcherContent);
+  writeFileSync(launcherPath, launcherContent);
   
   // Also create a PowerShell launcher
   const psLauncherContent = `Set-Location $PSScriptRoot
@@ -160,7 +160,7 @@ Start-Process -FilePath "electron.exe" -ArgumentList "$PSScriptRoot\\main.js"
 `;
   
   const psLauncherPath = join(appDir, `${config.appName}.ps1`);
-  require('fs').writeFileSync(psLauncherPath, psLauncherContent);
+  writeFileSync(psLauncherPath, psLauncherContent);
 }
 
 function createMacLauncher(appDir: string, config: BuildConfig): void {
@@ -170,7 +170,7 @@ cd "$(dirname "$0")"
 `;
   
   const launcherPath = join(appDir, config.appName);
-  require('fs').writeFileSync(launcherPath, launcherContent);
+  writeFileSync(launcherPath, launcherContent);
   
   // Make executable
   execSync(`chmod +x "${launcherPath}"`, { stdio: 'inherit' });
@@ -183,7 +183,7 @@ cd "$(dirname "$0")"
 `;
   
   const launcherPath = join(appDir, config.appName);
-  require('fs').writeFileSync(launcherPath, launcherContent);
+  writeFileSync(launcherPath, launcherContent);
   
   // Make executable
   execSync(`chmod +x "${launcherPath}"`, { stdio: 'inherit' });
