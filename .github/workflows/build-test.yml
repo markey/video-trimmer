@@ -28,7 +28,8 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           
-      - name: Debug environment
+      - name: Debug environment (Linux/macOS)
+        if: runner.os != 'Windows'
         run: |
           echo "=== Environment Debug Info ==="
           echo "Runner OS: ${{ runner.os }}"
@@ -36,15 +37,37 @@ jobs:
           echo "NPM version: $(npm --version)"
           echo "Current directory: $(pwd)"
           echo "Directory contents:"
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            dir
-          else
-            ls -la
-          fi
+          ls -la
           echo "Package.json exists: $(if [ -f package.json ]; then echo "Yes"; else echo "No"; fi)"
           echo "==============================="
+          
+      - name: Debug environment (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "=== Environment Debug Info ==="
+          echo "Runner OS: ${{ runner.os }}"
+          echo "Node version: $(node --version)"
+          echo "NPM version: $(npm --version)"
+          echo "Current directory: $(pwd)"
+          echo "Directory contents:"
+          dir
+          echo "Package.json exists: $(if (Test-Path "package.json") { echo "Yes" } else { echo "No" })"
+          echo "==============================="
         
-      - name: Test npm functionality
+      - name: Test npm functionality (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          echo "=== Testing npm functionality ==="
+          echo "Testing npm version..."
+          npm --version
+          echo "Testing npm list..."
+          npm list --depth=0 || echo "npm list failed (this might be normal)"
+          echo "Testing npm run..."
+          npm run --silent || echo "npm run failed (this might be normal)"
+          echo "================================"
+          
+      - name: Test npm functionality (Windows)
+        if: runner.os == 'Windows'
         run: |
           echo "=== Testing npm functionality ==="
           echo "Testing npm version..."
@@ -55,15 +78,26 @@ jobs:
           npm run --silent || echo "npm run failed (this might be normal)"
           echo "================================"
         
-      - name: Verify package files
+      - name: Verify package files (Linux/macOS)
+        if: runner.os != 'Windows'
         run: |
           echo "=== Verifying package files ==="
           echo "Package.json size: $(if [ -f package.json ]; then wc -l < package.json; else echo "Not found"; fi)"
           echo "Package-lock.json size: $(if [ -f package-lock.json ]; then wc -l < package-lock.json; else echo "Not found"; fi)"
           echo "Node modules exists: $(if [ -d node_modules ]; then echo "Yes"; else echo "No"; fi)"
           echo "================================"
+          
+      - name: Verify package files (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "=== Verifying package files ==="
+          echo "Package.json size: $(if (Test-Path "package.json") { Get-Content "package.json" | Measure-Object -Line | Select-Object -ExpandProperty Lines } else { echo "Not found" })"
+          echo "Package-lock.json size: $(if (Test-Path "package-lock.json") { Get-Content "package-lock.json" | Measure-Object -Line | Select-Object -ExpandProperty Lines } else { echo "Not found" })"
+          echo "Node modules exists: $(if (Test-Path "node_modules") { echo "Yes" } else { echo "No" })"
+          echo "================================"
         
-      - name: Install dependencies
+      - name: Install dependencies (Linux/macOS)
+        if: runner.os != 'Windows'
         run: |
           echo "Attempting to install dependencies with npm ci..."
           npm ci || {
@@ -71,20 +105,33 @@ jobs:
             npm install
           }
           
-      - name: Verify dependencies installed
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "Attempting to install dependencies with npm ci..."
+          npm ci || {
+            echo "npm ci failed, trying npm install instead..."
+            npm install
+          }
+          
+      - name: Verify dependencies installed (Linux/macOS)
+        if: runner.os != 'Windows'
         run: |
           echo "Verifying that dependencies were installed correctly..."
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            if (!(Test-Path "node_modules")) { 
-              Write-Error "❌ node_modules directory not found after npm install"
-              exit 1 
-            }
-          else
-            if [ ! -d "node_modules" ]; then
-              echo "❌ node_modules directory not found after npm install"
-              exit 1
-            fi
+          if [ ! -d "node_modules" ]; then
+            echo "❌ node_modules directory not found after npm install"
+            exit 1
           fi
+          echo "✅ Dependencies installed successfully"
+          
+      - name: Verify dependencies installed (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "Verifying that dependencies were installed correctly..."
+          if (!(Test-Path "node_modules")) { 
+            Write-Error "❌ node_modules directory not found after npm install"
+            exit 1 
+          }
           echo "✅ Dependencies installed successfully"
           
       - name: Setup platform-specific tools (Linux)
@@ -134,7 +181,8 @@ jobs:
           echo "Attempting to download dependencies..."
           node scripts/download-deps.js
         
-      - name: Test build step by step
+      - name: Test build step by step (Linux/macOS)
+        if: runner.os != 'Windows'
         run: |
           echo "=== Testing build step by step ==="
           
@@ -156,27 +204,51 @@ jobs:
           
           echo "=== All build steps completed ==="
         
-      - name: Debug build output
+      - name: Test build step by step (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "=== Testing build step by step ==="
+          
+          # Test 1: Clean directories
+          echo "1. Testing rimraf..."
+          npx rimraf dist out || echo "rimraf failed, trying manual cleanup..."
+          
+          # Test 2: Build renderer
+          echo "2. Testing renderer build..."
+          npm run build:renderer
+          
+          # Test 3: Build main process
+          echo "3. Testing main process build..."
+          npm run build:main
+          
+          # Test 4: Build preload
+          echo "4. Testing preload build..."
+          npm run build:preload
+          
+          echo "=== All build steps completed ==="
+        
+      - name: Debug build output (Linux/macOS)
+        if: runner.os != 'Windows'
         run: |
           echo "=== Build Output Debug ==="
           echo "Checking out/ directory:"
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            if (Test-Path "out") { dir out } else { echo "out directory does not exist" }
-          else
-            if [ -d "out" ]; then ls -la out; else echo "out directory does not exist"; fi
-          fi
+          if [ -d "out" ]; then ls -la out; else echo "out directory does not exist"; fi
           echo "Checking dist/ directory:"
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            if (Test-Path "dist") { dir dist } else { echo "dist directory does not exist" }
-          else
-            if [ -d "dist" ]; then ls -la dist; else echo "dist directory does not exist"; fi
-          fi
+          if [ -d "dist" ]; then ls -la dist; else echo "dist directory does not exist"; fi
           echo "Checking bin/ directory:"
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            if (Test-Path "bin") { dir bin } else { echo "bin directory does not exist" }
-          else
-            if [ -d "bin" ]; then ls -la bin; else echo "bin directory does not exist"; fi
-          fi
+          if [ -d "bin" ]; then ls -la bin; else echo "bin directory does not exist"; fi
+          echo "=========================="
+          
+      - name: Debug build output (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "=== Build Output Debug ==="
+          echo "Checking out/ directory:"
+          if (Test-Path "out") { dir out } else { echo "out directory does not exist" }
+          echo "Checking dist/ directory:"
+          if (Test-Path "dist") { dir dist } else { echo "dist directory does not exist" }
+          echo "Checking bin/ directory:"
+          if (Test-Path "bin") { dir bin } else { echo "bin directory does not exist" }
           echo "=========================="
         
       - name: Verify build output (Linux/macOS)
@@ -251,5 +323,10 @@ jobs:
           }
           echo "✅ External dependencies verified"
           
-      - name: Run type check
+      - name: Run type check (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: npm run typecheck
+        
+      - name: Run type check (Windows)
+        if: runner.os == 'Windows'
         run: npm run typecheck
