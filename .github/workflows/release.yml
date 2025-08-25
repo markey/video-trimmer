@@ -189,15 +189,24 @@ jobs:
         with:
           path: artifacts
           
-      - name: Create Release
+      - name: Create Release (Linux/macOS assets)
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            artifacts/video-trimmer-windows/video-trimmer-windows.zip
             artifacts/video-trimmer-macos/*.tar.gz
             artifacts/video-trimmer-linux/*.tar.gz
           draft: false
           prerelease: false
           generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows asset
+        uses: svenstaro/upload-release-action@v2
+        with:
+          file: artifacts/video-trimmer-windows/video-trimmer-windows.zip
+          asset_name: video-trimmer-windows.zip
+          tag: ${{ github.ref_name }}
+          overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
