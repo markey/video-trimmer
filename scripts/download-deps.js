@@ -1,7 +1,7 @@
-const { execSync } = require('child_process');
-const { mkdirSync, existsSync, writeFileSync } = require('fs');
-const { join, resolve } = require('path');
-const { platform, arch } = require('os');
+import { execSync } from 'child_process';
+import { mkdirSync, existsSync, writeFileSync, statSync, unlinkSync } from 'fs';
+import { join, resolve } from 'path';
+import { platform, arch } from 'os';
 
 const dependencies = [
   {
@@ -72,7 +72,7 @@ async function downloadFile(url, outputPath) {
     
     // Verify download
     if (existsSync(outputPath)) {
-      const stats = require('fs').statSync(outputPath);
+      const stats = statSync(outputPath);
       console.log(`Download completed: ${outputPath} (${stats.size} bytes)`);
       
       // Check if file is not empty
@@ -87,7 +87,7 @@ async function downloadFile(url, outputPath) {
     // Clean up failed download
     if (existsSync(outputPath)) {
       try {
-        require('fs').unlinkSync(outputPath);
+        unlinkSync(outputPath);
       } catch (cleanupError) {
         console.warn(`Warning: Could not clean up failed download: ${cleanupError.message}`);
       }
@@ -267,7 +267,7 @@ async function main() {
         // Verify the file exists
         if (existsSync(finalPath)) {
           console.log(`✓ Successfully installed ${dep.name} at: ${finalPath}`);
-          console.log(`File size: ${require('fs').statSync(finalPath).size} bytes`);
+          console.log(`File size: ${statSync(finalPath).size} bytes`);
         } else {
           console.error(`❌ File not found after installation: ${finalPath}`);
           throw new Error(`Failed to install ${dep.name} - file not found`);

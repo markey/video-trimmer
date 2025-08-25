@@ -17,6 +17,7 @@
     "build:renderer": "vite build --config vite.renderer.config.ts",
     "build:electron": "tsx scripts/build-electron.ts",
     "download-deps": "node scripts/download-deps.js",
+    "test-download": "node scripts/download-deps.js",
     "test-build": "tsx scripts/test-build.ts",
     "test-build:local": "npm run download-deps && npm run build",
     "test-local:unix": "bash scripts/test-local-build.sh",

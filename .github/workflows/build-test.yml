@@ -71,6 +71,22 @@ jobs:
             npm install
           }
           
+      - name: Verify dependencies installed
+        run: |
+          echo "Verifying that dependencies were installed correctly..."
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            if (!(Test-Path "node_modules")) { 
+              Write-Error "❌ node_modules directory not found after npm install"
+              exit 1 
+            }
+          else
+            if [ ! -d "node_modules" ]; then
+              echo "❌ node_modules directory not found after npm install"
+              exit 1
+            fi
+          fi
+          echo "✅ Dependencies installed successfully"
+          
       - name: Setup platform-specific tools (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -101,6 +117,8 @@ jobs:
           echo "Current directory: $(pwd)"
           echo "Scripts directory:"
           ls -la scripts/
+          echo "Testing download-deps script..."
+          node --version
           echo "Attempting to download dependencies..."
           node scripts/download-deps.js
           
@@ -111,6 +129,8 @@ jobs:
           echo "Current directory: $(pwd)"
           echo "Scripts directory:"
           dir scripts
+          echo "Testing download-deps script..."
+          node --version
           echo "Attempting to download dependencies..."
           node scripts/download-deps.js
         
