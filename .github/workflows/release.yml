@@ -60,11 +60,13 @@ jobs:
       - name: Create Windows archive
         shell: pwsh
         run: |
-          # Zip the packaged app folder: dist\video-editor-<version>-win32-<arch>
+          # Zip the packaged app folder using the tag version
           $folder = Get-ChildItem -Path "dist" -Directory -Name | Where-Object { $_ -like "video-trimmer-*-win32-*" } | Select-Object -First 1
           if (-not $folder) { throw "Packaged folder not found under dist" }
           $src = Join-Path "dist" $folder
-          $dst = "dist\video-trimmer-windows.zip"
+          $version = $env:APP_VERSION
+          if (-not $version) { $version = "unknown" }
+          $dst = "dist\video-trimmer-$version-windows.zip"
           if (Test-Path $dst) { Remove-Item $dst -Force }
           Compress-Archive -Path $src -DestinationPath $dst -CompressionLevel Optimal
           
@@ -72,7 +74,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: video-trimmer-windows
-          path: dist/video-trimmer-windows.zip
+          path: dist/video-trimmer-*-windows.zip
           retention-days: 30
 
   build-macos:
@@ -204,8 +206,8 @@ jobs:
       - name: Upload Windows asset
         uses: svenstaro/upload-release-action@v2
         with:
-          file: artifacts/video-trimmer-windows/video-trimmer-windows.zip
-          asset_name: video-trimmer-windows.zip
+          file: artifacts/video-trimmer-windows/video-trimmer-${{ github.ref_name }}-windows.zip
+          asset_name: video-trimmer-${{ github.ref_name }}-windows.zip
           tag: ${{ github.ref_name }}
           overwrite: true
         env:
