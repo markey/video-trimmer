@@ -19,6 +19,8 @@
     "download-deps": "node scripts/download-deps.js",
     "test-build": "tsx scripts/test-build.ts",
     "test-build:local": "npm run download-deps && npm run build",
+    "test-local:unix": "bash scripts/test-local-build.sh",
+    "test-local:windows": "powershell -ExecutionPolicy Bypass -File scripts/test-local-build.ps1",
     "start": "electron .",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

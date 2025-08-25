@@ -98,6 +98,13 @@ Before pushing changes that might affect the build:
 3. **Run type check**: `npm run typecheck`
 4. **Test build locally**: `npm run test-build:local`
 
+**For comprehensive local testing:**
+
+- **Unix/macOS**: `npm run test-local:unix`
+- **Windows**: `npm run test-local:windows`
+
+These scripts will test the entire build process step by step and help identify any issues before they reach GitHub Actions.
+
 ### Common Commands for Debugging
 
 ```bash
