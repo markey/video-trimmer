@@ -37,7 +37,7 @@ jobs:
       - name: Build application
         run: npm run build
         
-            - name: Verify build output
+      - name: Verify build output
         run: |
           # Check that main files exist
           if [ ! -f "out/main.js" ]; then
