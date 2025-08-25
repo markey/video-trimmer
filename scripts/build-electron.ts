@@ -102,22 +102,16 @@ async function packageApplication(): Promise<void> {
   copyFileSync('out/main.js', join(appDir, 'main.js'));
   copyFileSync('out/preload.cjs', join(appDir, 'preload.cjs'));
   
-  // Copy renderer files
+  // Copy renderer files (for convenience when running main.js directly)
   const rendererDir = join(appDir, 'renderer');
   mkdirSync(rendererDir, { recursive: true });
-  
-  if (existsSync('dist/renderer')) {
-    copyDirectory('dist/renderer', rendererDir);
-  }
-  
-  // Copy dependencies
+  if (existsSync('dist/renderer')) copyDirectory('dist/renderer', rendererDir);
+
+  // Copy dependencies (ffmpeg, ffprobe, yt-dlp) next to app
   console.log('Copying external dependencies...');
   const binDir = join(appDir, 'bin');
   mkdirSync(binDir, { recursive: true });
-  
-  if (existsSync('bin')) {
-    copyDirectory('bin', binDir);
-  }
+  if (existsSync('bin')) copyDirectory('bin', binDir);
 
   // Bundle Electron runtime so the app can run standalone
   console.log('Copying Electron runtime...');
@@ -135,6 +129,39 @@ async function packageApplication(): Promise<void> {
       throw new Error('Electron.app not found in electron/dist');
     }
     copyDirectory(electronApp, join(appDir, 'Electron.app'));
+  }
+
+  // Prepare resources/app so Electron can auto-start without args
+  const resourcesDir = isMac ? join(appDir, 'Electron.app', 'Contents', 'Resources') : join(appDir, 'resources');
+  const packagedAppDir = join(resourcesDir, 'app');
+  mkdirSync(packagedAppDir, { recursive: true });
+
+  // Copy compiled app code into resources/app
+  copyFileSync('out/main.js', join(packagedAppDir, 'main.js'));
+  copyFileSync('out/preload.cjs', join(packagedAppDir, 'preload.cjs'));
+  if (existsSync('dist/renderer')) copyDirectory('dist/renderer', join(packagedAppDir, 'renderer'));
+  if (existsSync('bin')) copyDirectory('bin', join(packagedAppDir, 'bin'));
+
+  // Minimal package.json for packaged app
+  const minimalPkg = {
+    name: 'video-trimmer',
+    version: config.appVersion,
+    type: 'module',
+    main: 'main.js'
+  };
+  writeFileSync(join(packagedAppDir, 'package.json'), JSON.stringify(minimalPkg, null, 2));
+
+  // Create an obvious starter on Windows
+  if (isWindows) {
+    const electronExe = join(appDir, 'electron.exe');
+    const brandedExe = join(appDir, 'Video Trimmer.exe');
+    try {
+      if (existsSync(electronExe)) {
+        copyFileSync(electronExe, brandedExe);
+      }
+    } catch {}
+    const startCmd = `@echo off\r\ncd /d "%~dp0"\r\nstart "" "%~dp0Video Trimmer.exe"\r\n`;
+    writeFileSync(join(appDir, 'Start Video Trimmer.cmd'), startCmd);
   }
   
   // Copy package.json

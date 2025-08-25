@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, protocol, Menu, shell } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
@@ -43,7 +44,13 @@ function createWindow() {
     mainWindow.loadURL(devUrl);
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
-    mainWindow.loadFile(path.resolve('dist/renderer/index.html'));
+    // In production, prefer renderer/index.html next to compiled main.js (packaged resources)
+    const candidates = [
+      path.resolve(__dirname, 'renderer', 'index.html'),
+      path.resolve('dist/renderer/index.html'),
+    ];
+    const target = candidates.find(p => fsSync.existsSync(p));
+    mainWindow.loadFile(target || candidates[1]);
   }
 
   mainWindow.once('ready-to-show', () => mainWindow?.show());

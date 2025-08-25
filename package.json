@@ -1,5 +1,5 @@
 {
-  "name": "video-editor",
+  "name": "video-trimmer",
   "version": "0.1.0",
   "private": true,
   "description": "Minimal, fast, frame-accurate video trimmer with text watermark (Electron + React)",

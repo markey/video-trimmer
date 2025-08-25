@@ -61,18 +61,18 @@ jobs:
         shell: pwsh
         run: |
           # Zip the packaged app folder: dist\video-editor-<version>-win32-<arch>
-          $folder = Get-ChildItem -Path "dist" -Directory -Name | Where-Object { $_ -like "video-editor-*-win32-*" } | Select-Object -First 1
+          $folder = Get-ChildItem -Path "dist" -Directory -Name | Where-Object { $_ -like "video-trimmer-*-win32-*" } | Select-Object -First 1
           if (-not $folder) { throw "Packaged folder not found under dist" }
           $src = Join-Path "dist" $folder
-          $dst = "dist\video-editor-windows.zip"
+          $dst = "dist\video-trimmer-windows.zip"
           if (Test-Path $dst) { Remove-Item $dst -Force }
           Compress-Archive -Path $src -DestinationPath $dst -CompressionLevel Optimal
           
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: video-editor-windows
-          path: dist/video-editor-windows.zip
+          name: video-trimmer-windows
+          path: dist/video-trimmer-windows.zip
           retention-days: 30
 
   build-macos:
@@ -111,14 +111,14 @@ jobs:
       - name: Create macOS archive
         run: |
           cd dist
-          for dir in video-editor-*-darwin-*; do
+          for dir in video-trimmer-*-darwin-*; do
             tar -czf "${dir}.tar.gz" "$dir"
           done
           
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: video-editor-macos
+          name: video-trimmer-macos
           path: dist/*.tar.gz
           retention-days: 30
 
@@ -163,14 +163,14 @@ jobs:
       - name: Create Linux archive
         run: |
           cd dist
-          for dir in video-editor-*-linux-*; do
+          for dir in video-trimmer-*-linux-*; do
             tar -czf "${dir}.tar.gz" "$dir"
           done
           
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: video-editor-linux
+          name: video-trimmer-linux
           path: dist/*.tar.gz
           retention-days: 30
 
@@ -193,9 +193,9 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            artifacts/video-editor-windows/video-editor-windows.zip
-            artifacts/video-editor-macos/*.tar.gz
-            artifacts/video-editor-linux/*.tar.gz
+            artifacts/video-trimmer-windows/video-trimmer-windows.zip
+            artifacts/video-trimmer-macos/*.tar.gz
+            artifacts/video-trimmer-linux/*.tar.gz
           draft: false
           prerelease: false
           generate_release_notes: true
