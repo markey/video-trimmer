@@ -118,6 +118,24 @@ async function packageApplication(): Promise<void> {
   if (existsSync('bin')) {
     copyDirectory('bin', binDir);
   }
+
+  // Bundle Electron runtime so the app can run standalone
+  console.log('Copying Electron runtime...');
+  const electronDist = resolve('node_modules', 'electron', 'dist');
+  if (!existsSync(electronDist)) {
+    throw new Error('Electron runtime not found. Ensure devDependency "electron" is installed.');
+  }
+  if (isWindows || isLinux) {
+    // Copy entire dist contents so electron(.exe) sits next to main.js
+    copyDirectory(electronDist, appDir);
+  } else if (isMac) {
+    // On macOS, copy Electron.app bundle
+    const electronApp = join(electronDist, 'Electron.app');
+    if (!existsSync(electronApp)) {
+      throw new Error('Electron.app not found in electron/dist');
+    }
+    copyDirectory(electronApp, join(appDir, 'Electron.app'));
+  }
   
   // Copy package.json
   copyFileSync('package.json', join(appDir, 'package.json'));
@@ -172,9 +190,11 @@ Start-Process -FilePath "electron.exe" -ArgumentList "$PSScriptRoot\\main.js"
 }
 
 function createMacLauncher(appDir: string, config: BuildConfig): void {
-  const launcherContent = `#!/bin/bash
+  const launcherContent = `#!/usr/bin/env bash
+set -euo pipefail
 cd "$(dirname "$0")"
-./electron main.js
+# Launch Electron from the bundled app
+"./Electron.app/Contents/MacOS/Electron" main.js
 `;
   
   const launcherPath = join(appDir, config.appName);
@@ -185,9 +205,10 @@ cd "$(dirname "$0")"
 }
 
 function createLinuxLauncher(appDir: string, config: BuildConfig): void {
-  const launcherContent = `#!/bin/bash
+  const launcherContent = `#!/usr/bin/env bash
+set -euo pipefail
 cd "$(dirname "$0")"
-./electron main.js
+"./electron" main.js
 `;
   
   const launcherPath = join(appDir, config.appName);
