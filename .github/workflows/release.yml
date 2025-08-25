@@ -5,8 +5,12 @@ on:
     tags:
       - 'v*' # Trigger on version tags like v1.0.0
 
+# Required so the workflow can create GitHub Releases
+permissions:
+  contents: write
+
 env:
-  NODE_VERSION: '18'
+  NODE_VERSION: '20'
 
 jobs:
   build-windows:
