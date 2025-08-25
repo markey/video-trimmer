@@ -24,7 +24,12 @@ jobs:
           cache: 'npm'
           
       - name: Install dependencies
-        run: npm ci
+        run: |
+          echo "Attempting to install dependencies with npm ci..."
+          npm ci || {
+            echo "npm ci failed, trying npm install instead..."
+            npm install
+          }
         
       - name: Download external dependencies
         run: node scripts/download-deps.js
@@ -67,7 +72,12 @@ jobs:
           cache: 'npm'
           
       - name: Install dependencies
-        run: npm ci
+        run: |
+          echo "Attempting to install dependencies with npm ci..."
+          npm ci || {
+            echo "npm ci failed, trying npm install instead..."
+            npm install
+          }
         
       - name: Download external dependencies
         run: node scripts/download-deps.js
@@ -109,10 +119,15 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y unzip curl
+          sudo apt-get install -y unzip curl tar xz-utils
           
       - name: Install dependencies
-        run: npm ci
+        run: |
+          echo "Attempting to install dependencies with npm ci..."
+          npm ci || {
+            echo "npm ci failed, trying npm install instead..."
+            npm install
+          }
         
       - name: Download external dependencies
         run: node scripts/download-deps.js

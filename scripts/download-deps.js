@@ -328,12 +328,16 @@ async function main() {
             // Store the archive path for reuse
             downloadedArchives.set(platformDep.url, downloadPath);
           } else {
-            // It's a direct binary, rename it
-            console.log(`Moving binary to final location: ${finalPath}`);
-            if (platform() === 'win32') {
-              execSync(`move "${downloadPath}" "${finalPath}"`, { stdio: 'inherit' });
+            // It's a direct binary; move only if paths differ
+            if (downloadPath !== finalPath) {
+              console.log(`Moving binary to final location: ${finalPath}`);
+              if (platform() === 'win32') {
+                execSync(`move "${downloadPath}" "${finalPath}"`, { stdio: 'inherit' });
+              } else {
+                execSync(`mv "${downloadPath}" "${finalPath}"`, { stdio: 'inherit' });
+              }
             } else {
-              execSync(`mv "${downloadPath}" "${finalPath}"`, { stdio: 'inherit' });
+              console.log('Download path equals final path; skipping move');
             }
           }
         }

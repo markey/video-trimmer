@@ -178,8 +178,12 @@ async function main(): Promise<void> {
           // Store the archive path for reuse
           downloadedArchives.set(platformDep.url, downloadPath);
         } else {
-          // It's a direct binary, rename it
-          execSync(`mv "${downloadPath}" "${finalPath}"`, { stdio: 'inherit' });
+          // It's a direct binary; move only if paths differ
+          if (downloadPath !== finalPath) {
+            execSync(`mv "${downloadPath}" "${finalPath}"`, { stdio: 'inherit' });
+          } else {
+            console.log('Download path equals final path; skipping move');
+          }
         }
       }
       
