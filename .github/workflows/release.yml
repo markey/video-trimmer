@@ -3,7 +3,13 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*' # Trigger on version tags like v1.0.0
+      - 'v*'   # v-prefixed tags like v1.0.0
+      - '*'    # any tag, e.g. 0.26
+  create:
+    tags:
+      - 'v*'   # v-prefixed tags
+      - '*'    # any tag
+  workflow_dispatch: {}
 
 # Required so the workflow can create GitHub Releases
 permissions:
