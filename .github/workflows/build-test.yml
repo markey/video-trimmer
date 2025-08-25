@@ -31,8 +31,30 @@ jobs:
       - name: Install dependencies
         run: npm ci
         
+      - name: Setup platform-specific tools
+        run: |
+          # Install platform-specific dependencies
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            echo "Setting up macOS..."
+            # macOS should have curl by default
+          elif [ "$RUNNER_OS" = "Linux" ]; then
+            echo "Setting up Linux..."
+            sudo apt-get update
+            sudo apt-get install -y unzip curl
+          elif [ "$RUNNER_OS" = "Windows" ]; then
+            echo "Setting up Windows..."
+            # Windows should have PowerShell by default
+          fi
+          
       - name: Download external dependencies
-        run: node scripts/download-deps.js
+        run: |
+          echo "Platform: $RUNNER_OS"
+          echo "Node version: $(node --version)"
+          echo "Current directory: $(pwd)"
+          echo "Contents of scripts/:"
+          ls -la scripts/
+          echo "Attempting to download dependencies..."
+          node scripts/download-deps.js
         
       - name: Build application
         run: npm run build
