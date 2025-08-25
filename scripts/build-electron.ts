@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { existsSync, rmSync, mkdirSync, copyFileSync, readdirSync, statSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, rmSync, mkdirSync, copyFileSync, readdirSync, statSync, lstatSync, readlinkSync, symlinkSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve, basename } from 'node:path';
 import { platform, arch } from 'node:os';
 
@@ -163,7 +163,28 @@ function copyDirectory(src: string, dest: string): void {
     const srcPath = join(src, entry.name);
     const destPath = join(dest, entry.name);
     
-    if (entry.isDirectory()) {
+    if (entry.isSymbolicLink()) {
+      try {
+        const linkTarget = readlinkSync(srcPath);
+        // On POSIX, type can be omitted and inferred; on Windows, fall back to copy
+        if (platform() === 'win32') {
+          // Windows symlinks need elevation; fallback to deep copy of target
+          const targetStat = statSync(srcPath);
+          if (targetStat.isDirectory()) {
+            // Best-effort: recursively copy the link contents
+            copyDirectory(srcPath, destPath);
+          } else {
+            copyFileSync(srcPath, destPath);
+          }
+        } else {
+          symlinkSync(linkTarget, destPath);
+        }
+      } catch (e) {
+        // If symlink replication fails, attempt to copy as regular file/dir
+        const st = statSync(srcPath);
+        if (st.isDirectory()) copyDirectory(srcPath, destPath); else copyFileSync(srcPath, destPath);
+      }
+    } else if (entry.isDirectory()) {
       copyDirectory(srcPath, destPath);
     } else {
       copyFileSync(srcPath, destPath);
