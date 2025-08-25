@@ -45,7 +45,7 @@ async function downloadDependencies(): Promise<void> {
       !existsSync('bin/ffprobe') && !existsSync('bin/ffprobe.exe') ||
       !existsSync('bin/yt-dlp') && !existsSync('bin/yt-dlp.exe')) {
     console.log('Dependencies not found, downloading...');
-    await runCommand('npx tsx scripts/download-deps.ts');
+    await runCommand('node scripts/download-deps.js');
   } else {
     console.log('✓ Dependencies already exist');
   }

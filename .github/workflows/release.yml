@@ -27,7 +27,7 @@ jobs:
         run: npm ci
         
       - name: Download external dependencies
-        run: npx tsx scripts/download-deps.ts
+        run: node scripts/download-deps.js
         
       - name: Build application
         run: npm run build
@@ -70,7 +70,7 @@ jobs:
         run: npm ci
         
       - name: Download external dependencies
-        run: npx tsx scripts/download-deps.ts
+        run: node scripts/download-deps.js
         
       - name: Build application
         run: npm run build
@@ -115,7 +115,7 @@ jobs:
         run: npm ci
         
       - name: Download external dependencies
-        run: npx tsx scripts/download-deps.ts
+        run: node scripts/download-deps.js
         
       - name: Build application
         run: npm run build
