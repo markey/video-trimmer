@@ -1,0 +1,166 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger on version tags like v1.0.0
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  build-windows:
+    name: Build for Windows
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Download external dependencies
+        run: npx tsx scripts/download-deps.ts
+        
+      - name: Build application
+        run: npm run build
+        
+      - name: Package application
+        run: npx tsx scripts/build-electron.ts
+        
+      - name: Create Windows installer
+        run: |
+          # Create a simple zip archive for Windows
+          $compress = @{
+            Path = "dist\video-editor-*\windows-*"
+            CompressionLevel = "Optimal"
+            DestinationPath = "dist\video-editor-windows.zip"
+          }
+          Compress-Archive @compress
+          
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-editor-windows
+          path: dist/video-editor-windows.zip
+          retention-days: 30
+
+  build-macos:
+    name: Build for macOS
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Download external dependencies
+        run: npx tsx scripts/download-deps.ts
+        
+      - name: Build application
+        run: npm run build
+        
+      - name: Package application
+        run: npx tsx scripts/build-electron.ts
+        
+      - name: Create macOS archive
+        run: |
+          cd dist
+          for dir in video-editor-*-darwin-*; do
+            tar -czf "${dir}.tar.gz" "$dir"
+          done
+          
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-editor-macos
+          path: dist/*.tar.gz
+          retention-days: 30
+
+  build-linux:
+    name: Build for Linux
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip curl
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Download external dependencies
+        run: npx tsx scripts/download-deps.ts
+        
+      - name: Build application
+        run: npm run build
+        
+      - name: Package application
+        run: npx tsx scripts/build-electron.ts
+        
+      - name: Create Linux archive
+        run: |
+          cd dist
+          for dir in video-editor-*-linux-*; do
+            tar -czf "${dir}.tar.gz" "$dir"
+          done
+          
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-editor-linux
+          path: dist/*.tar.gz
+          retention-days: 30
+
+  create-release:
+    name: Create Release
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/video-editor-windows/video-editor-windows.zip
+            artifacts/video-editor-macos/*.tar.gz
+            artifacts/video-editor-linux/*.tar.gz
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,75 @@
+name: Build Test
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  push:
+    branches: [ main, master ]
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  test-build:
+    name: Test Build
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Download external dependencies
+        run: npx tsx scripts/download-deps.ts
+        
+      - name: Build application
+        run: npm run build
+        
+            - name: Verify build output
+        run: |
+          # Check that main files exist
+          if [ ! -f "out/main.js" ]; then
+            echo "❌ main.js not found"
+            exit 1
+          fi
+          if [ ! -f "out/preload.cjs" ]; then
+            echo "❌ preload.cjs not found"
+            exit 1
+          fi
+          if [ ! -d "dist/renderer" ]; then
+            echo "❌ renderer directory not found"
+            exit 1
+          fi
+          echo "✅ Build verification passed"
+          
+      - name: Check external dependencies
+        run: |
+          # Verify that external dependencies were downloaded
+          if [ ! -f "bin/ffmpeg" ] && [ ! -f "bin/ffmpeg.exe" ]; then
+            echo "❌ ffmpeg not found"
+            exit 1
+          fi
+          if [ ! -f "bin/ffprobe" ] && [ ! -f "bin/ffprobe.exe" ]; then
+            echo "❌ ffprobe not found"
+            exit 1
+          fi
+          if [ ! -f "bin/yt-dlp" ] && [ ! -f "bin/yt-dlp.exe" ]; then
+            echo "❌ yt-dlp not found"
+            exit 1
+          fi
+          echo "✅ External dependencies verified"
+          
+      - name: Run type check
+        run: npm run typecheck

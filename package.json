@@ -14,6 +14,10 @@
     "build": "rimraf dist out && vite build --config vite.renderer.config.ts && npm run build:main && npm run build:preload",
     "build:main": "esbuild src/main/main.ts --outfile=out/main.js --platform=node --format=esm --sourcemap --bundle --external:electron",
     "build:preload": "esbuild src/main/preload.ts --outfile=out/preload.cjs --platform=node --format=cjs --sourcemap --bundle --external:electron",
+    "build:renderer": "vite build --config vite.renderer.config.ts",
+    "build:electron": "tsx scripts/build-electron.ts",
+    "download-deps": "tsx scripts/download-deps.ts",
+    "test-build": "tsx scripts/test-build.ts",
     "start": "electron .",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -32,6 +36,7 @@
     "esbuild": "^0.23.0",
     "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
+    "tsx": "^4.7.0",
     "typescript": "^5.5.4",
     "vite": "^5.4.2",
     "wait-on": "^7.2.0"
