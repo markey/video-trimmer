@@ -24,11 +24,16 @@ jobs:
           cache: 'npm'
           
       - name: Install dependencies
+        shell: pwsh
         run: |
-          echo "Attempting to install dependencies with npm ci..."
-          npm ci || {
-            echo "npm ci failed, trying npm install instead..."
+          Write-Host "Attempting to install dependencies with npm ci..."
+          npm ci
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "npm ci failed, trying npm install instead..."
             npm install
+            if ($LASTEXITCODE -ne 0) {
+              throw "npm install failed"
+            }
           }
         
       - name: Download external dependencies
