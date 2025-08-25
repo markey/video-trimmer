@@ -4,6 +4,7 @@ import path from 'node:path';
 
 export default defineConfig({
   root: 'src/renderer',
+  base: './', // ensure relative asset paths for file:// loading in Electron
   plugins: [react()],
   server: {
     port: 5173,
@@ -19,4 +20,3 @@ export default defineConfig({
     }
   }
 });
-

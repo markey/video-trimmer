@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { existsSync, rmSync, mkdirSync, copyFileSync, readdirSync, statSync, lstatSync, readlinkSync, symlinkSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, rmSync, mkdirSync, copyFileSync, readdirSync, statSync, lstatSync, readlinkSync, symlinkSync, readFileSync, writeFileSync, renameSync, unlinkSync } from 'node:fs';
 import { join, resolve, basename } from 'node:path';
 import { platform, arch } from 'node:os';
 
@@ -107,12 +107,6 @@ async function packageApplication(): Promise<void> {
   mkdirSync(rendererDir, { recursive: true });
   if (existsSync('dist/renderer')) copyDirectory('dist/renderer', rendererDir);
 
-  // Copy dependencies (ffmpeg, ffprobe, yt-dlp) next to app
-  console.log('Copying external dependencies...');
-  const binDir = join(appDir, 'bin');
-  mkdirSync(binDir, { recursive: true });
-  if (existsSync('bin')) copyDirectory('bin', binDir);
-
   // Bundle Electron runtime so the app can run standalone
   console.log('Copying Electron runtime...');
   const electronDist = resolve('node_modules', 'electron', 'dist');
@@ -140,7 +134,16 @@ async function packageApplication(): Promise<void> {
   copyFileSync('out/main.js', join(packagedAppDir, 'main.js'));
   copyFileSync('out/preload.cjs', join(packagedAppDir, 'preload.cjs'));
   if (existsSync('dist/renderer')) copyDirectory('dist/renderer', join(packagedAppDir, 'renderer'));
-  if (existsSync('bin')) copyDirectory('bin', join(packagedAppDir, 'bin'));
+
+  // Place external binaries directly under resources/ for compact lookup from app code
+  if (existsSync('bin')) {
+    const binFiles = readdirSync('bin');
+    for (const f of binFiles) {
+      if (/^(ffmpeg|ffprobe|yt-dlp)(\.exe)?$/.test(f)) {
+        copyFileSync(join('bin', f), join(resourcesDir, f));
+      }
+    }
+  }
 
   // Minimal package.json for packaged app
   const minimalPkg = {
@@ -151,13 +154,31 @@ async function packageApplication(): Promise<void> {
   };
   writeFileSync(join(packagedAppDir, 'package.json'), JSON.stringify(minimalPkg, null, 2));
 
+  // Slim the Windows runtime by removing PDB debug symbols
+  if (isWindows) {
+    const removePdb = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, entry.name);
+        if (entry.isDirectory()) removePdb(p);
+        else if (entry.isFile() && p.toLowerCase().endsWith('.pdb')) {
+          try { unlinkSync(p); } catch {}
+        }
+      }
+    };
+    try { removePdb(appDir); } catch {}
+  }
+
   // Create an obvious starter on Windows
   if (isWindows) {
     const electronExe = join(appDir, 'electron.exe');
     const brandedExe = join(appDir, 'Video Trimmer.exe');
     try {
       if (existsSync(electronExe)) {
-        copyFileSync(electronExe, brandedExe);
+        try { renameSync(electronExe, brandedExe); }
+        catch {
+          copyFileSync(electronExe, brandedExe);
+          try { unlinkSync(electronExe); } catch {}
+        }
       }
     } catch {}
     const startCmd = `@echo off\r\ncd /d "%~dp0"\r\nstart "" "%~dp0Video Trimmer.exe"\r\n`;
