@@ -9,16 +9,19 @@ const dependencies = [
     windows: {
       url: 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip',
       filename: 'ffmpeg-master-latest-win64-gpl.zip',
-      extractPath: 'ffmpeg-master-latest-win64-gpl/bin'
+      extractPath: 'ffmpeg-master-latest-win64-gpl/bin',
+      binaries: ['ffmpeg.exe']
     },
     darwin: {
       url: 'https://evermeet.cx/ffmpeg/getrelease/zip',
-      filename: 'ffmpeg.zip'
+      filename: 'ffmpeg.zip',
+      binaries: ['ffmpeg']
     },
     linux: {
       url: 'https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz',
       filename: 'ffmpeg-release-amd64-static.tar.xz',
-      extractPath: 'ffmpeg-*-amd64-static'
+      extractPath: 'ffmpeg-*-amd64-static',
+      binaries: ['ffmpeg']
     }
   },
   {
@@ -26,31 +29,37 @@ const dependencies = [
     windows: {
       url: 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip',
       filename: 'ffmpeg-master-latest-win64-gpl.zip',
-      extractPath: 'ffmpeg-master-latest-win64-gpl/bin'
+      extractPath: 'ffmpeg-master-latest-win64-gpl/bin',
+      binaries: ['ffprobe.exe']
     },
     darwin: {
       url: 'https://evermeet.cx/ffmpeg/getrelease/zip',
-      filename: 'ffmpeg.zip'
+      filename: 'ffmpeg.zip',
+      binaries: ['ffprobe']
     },
     linux: {
       url: 'https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz',
       filename: 'ffmpeg-release-amd64-static.tar.xz',
-      extractPath: 'ffmpeg-*-amd64-static'
+      extractPath: 'ffmpeg-*-amd64-static',
+      binaries: ['ffprobe']
     }
   },
   {
     name: 'yt-dlp',
     windows: {
       url: 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe',
-      filename: 'yt-dlp.exe'
+      filename: 'yt-dlp.exe',
+      binaries: ['yt-dlp.exe']
     },
     darwin: {
       url: 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp',
-      filename: 'yt-dlp'
+      filename: 'yt-dlp',
+      binaries: ['yt-dlp']
     },
     linux: {
       url: 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp',
-      filename: 'yt-dlp'
+      filename: 'yt-dlp',
+      binaries: ['yt-dlp']
     }
   }
 ];
@@ -96,9 +105,10 @@ async function downloadFile(url, outputPath) {
   }
 }
 
-function extractArchive(archivePath, extractTo, extractPath) {
+function extractArchive(archivePath, extractTo, extractPath, binaries) {
   console.log(`Extracting ${archivePath} to ${extractTo}...`);
   console.log(`Extract path: ${extractPath}`);
+  console.log(`Target binaries: ${JSON.stringify(binaries)}`);
   
   try {
     if (platform() === 'win32') {
@@ -126,48 +136,113 @@ function extractArchive(archivePath, extractTo, extractPath) {
     // If we need to move files from a subdirectory
     if (extractPath) {
       console.log(`Processing extractPath: ${extractPath}`);
-      const extractDir = join(extractTo, extractPath);
-      console.log(`Looking for extractDir: ${extractDir}`);
       
-      if (existsSync(extractDir)) {
-        console.log(`ExtractDir exists, moving files...`);
-        // Move all files from extractPath to the bin directory
-        // Use platform-agnostic commands
-        if (platform() === 'win32') {
-          // Windows: use dir and move commands
-          console.log('Using Windows commands for file moving');
-          const files = execSync(`dir "${extractDir}" /B`, { encoding: 'utf8' }).trim().split('\r\n').filter(f => f.trim());
-          console.log(`Found files: ${JSON.stringify(files)}`);
-          for (const file of files) {
-            if (file && file !== '.' && file !== '..') {
-              const sourcePath = join(extractDir, file);
-              const destPath = join(extractTo, file);
-              console.log(`Moving: ${sourcePath} -> ${destPath}`);
-              execSync(`move "${sourcePath}" "${destPath}"`, { stdio: 'inherit' });
-            }
+      // Handle wildcard patterns by finding the actual directory
+      let actualExtractDir = null;
+      if (extractPath.includes('*')) {
+        // Find the actual directory that matches the pattern
+        const files = execSync(`ls -1 "${extractTo}"`, { encoding: 'utf8' }).trim().split('\n').filter(f => f.trim());
+        console.log(`Available directories: ${JSON.stringify(files)}`);
+        
+        // Look for a directory that matches the pattern (replace * with any characters)
+        const pattern = extractPath.replace(/\*/g, '.*');
+        const regex = new RegExp(pattern);
+        for (const file of files) {
+          if (regex.test(file)) {
+            actualExtractDir = join(extractTo, file);
+            console.log(`Found matching directory: ${actualExtractDir}`);
+            break;
           }
-          // Remove the empty extractPath directory
-          console.log(`Removing empty extractDir: ${extractDir}`);
-          execSync(`rmdir "${extractDir}"`, { stdio: 'inherit' });
-        } else {
-          // Unix-like systems: use ls and mv commands
-          console.log('Using Unix commands for file moving');
-          const files = execSync(`ls -A "${extractDir}"`, { encoding: 'utf8' }).trim().split('\n').filter(f => f.trim());
-          console.log(`Found files: ${JSON.stringify(files)}`);
-          for (const file of files) {
-            if (file && file !== '.' && file !== '..') {
-              const sourcePath = join(extractDir, file);
-              const destPath = join(extractTo, file);
-              console.log(`Moving: ${sourcePath} -> ${destPath}`);
-              execSync(`mv "${sourcePath}" "${destPath}"`, { stdio: 'inherit' });
-            }
-          }
-          // Remove the empty extractPath directory
-          console.log(`Removing empty extractDir: ${extractDir}`);
-          execSync(`rmdir "${extractDir}"`, { stdio: 'inherit' });
         }
       } else {
-        console.log(`ExtractDir does not exist: ${extractDir}`);
+        actualExtractDir = join(extractTo, extractPath);
+      }
+      
+      if (actualExtractDir && existsSync(actualExtractDir)) {
+        console.log(`ExtractDir exists, looking for target binaries...`);
+        
+        // Look for the specific binaries we need
+        if (binaries && binaries.length > 0) {
+          for (const binary of binaries) {
+            const binaryPath = join(actualExtractDir, binary);
+            if (existsSync(binaryPath)) {
+              console.log(`Found target binary: ${binary}`);
+              const destPath = join(extractTo, binary);
+              console.log(`Moving: ${binaryPath} -> ${destPath}`);
+              if (platform() === 'win32') {
+                execSync(`move "${binaryPath}" "${destPath}"`, { stdio: 'inherit' });
+              } else {
+                execSync(`mv "${binaryPath}" "${destPath}"`, { stdio: 'inherit' });
+              }
+            } else {
+              console.log(`Target binary not found: ${binary}, checking directory contents...`);
+              // List the contents of the extract directory to see what's actually there
+              const dirContents = execSync(`ls -la "${actualExtractDir}"`, { encoding: 'utf8' }).trim().split('\n').filter(f => f.trim());
+              console.log(`Directory contents: ${JSON.stringify(dirContents)}`);
+              
+              // Look for any executable files that might be our target
+              for (const content of dirContents) {
+                const parts = content.split(/\s+/);
+                if (parts.length >= 9) {
+                  const fileName = parts[8];
+                  const permissions = parts[0];
+                  if (permissions.includes('x') && !permissions.startsWith('d')) {
+                    console.log(`Found executable: ${fileName}`);
+                    if (binary === 'ffmpeg' && fileName.includes('ffmpeg')) {
+                      console.log(`Found ffmpeg binary: ${fileName}`);
+                      const sourcePath = join(actualExtractDir, fileName);
+                      const destPath = join(extractTo, binary);
+                      execSync(`mv "${sourcePath}" "${destPath}"`, { stdio: 'inherit' });
+                      break;
+                    } else if (binary === 'ffprobe' && fileName.includes('ffprobe')) {
+                      console.log(`Found ffprobe binary: ${fileName}`);
+                      const sourcePath = join(actualExtractDir, fileName);
+                      const destPath = join(extractTo, binary);
+                      execSync(`mv "${sourcePath}" "${destPath}"`, { stdio: 'inherit' });
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } else {
+          // Fallback: move all files if no specific binaries specified
+          console.log('No specific binaries specified, moving all files...');
+          if (platform() === 'win32') {
+            const files = execSync(`dir "${actualExtractDir}" /B`, { encoding: 'utf8' }).trim().split('\r\n').filter(f => f.trim());
+            for (const file of files) {
+              if (file && file !== '.' && file !== '..') {
+                const sourcePath = join(actualExtractDir, file);
+                const destPath = join(extractTo, file);
+                execSync(`move "${sourcePath}" "${destPath}"`, { stdio: 'inherit' });
+              }
+            }
+          } else {
+            const files = execSync(`ls -A "${actualExtractDir}"`, { encoding: 'utf8' }).trim().split('\n').filter(f => f.trim());
+            for (const file of files) {
+              if (file && file !== '.' && file !== '..') {
+                const sourcePath = join(actualExtractDir, file);
+                const destPath = join(extractTo, file);
+                execSync(`mv "${sourcePath}" "${destPath}"`, { stdio: 'inherit' });
+              }
+            }
+          }
+        }
+        
+        // Remove the empty extractPath directory
+        console.log(`Removing empty extractDir: ${actualExtractDir}`);
+        try {
+          if (platform() === 'win32') {
+            execSync(`rmdir "${actualExtractDir}"`, { stdio: 'inherit' });
+          } else {
+            execSync(`rmdir "${actualExtractDir}"`, { stdio: 'inherit' });
+          }
+        } catch (error) {
+          console.log(`Could not remove directory (might not be empty): ${error.message}`);
+        }
+      } else {
+        console.log(`ExtractDir does not exist: ${actualExtractDir || extractPath}`);
       }
     }
   } catch (error) {
@@ -236,7 +311,7 @@ async function main() {
           // Extract from the existing archive
           if (platformDep.filename.includes('.zip') || platformDep.filename.includes('.tar.xz')) {
             console.log(`Extracting from existing archive: ${archivePath}`);
-            extractArchive(archivePath, binDir, platformDep.extractPath);
+            extractArchive(archivePath, binDir, platformDep.extractPath, platformDep.binaries);
           }
         } else {
           // Download the dependency
@@ -247,7 +322,7 @@ async function main() {
           // Extract if it's an archive
           if (platformDep.filename.includes('.zip') || platformDep.filename.includes('.tar.xz')) {
             console.log(`Extracting archive: ${downloadPath}`);
-            extractArchive(downloadPath, binDir, platformDep.extractPath);
+            extractArchive(downloadPath, binDir, platformDep.extractPath, platformDep.binaries);
             // Store the archive path for reuse
             downloadedArchives.set(platformDep.url, downloadPath);
           } else {
@@ -262,15 +337,46 @@ async function main() {
         }
         
         // Make executable on Unix-like systems
-        makeExecutable(finalPath);
+        if (platformDep.binaries && platformDep.binaries.length > 0) {
+          // For archives, make each target binary executable
+          for (const binary of platformDep.binaries) {
+            const binaryPath = join(binDir, binary);
+            if (existsSync(binaryPath)) {
+              makeExecutable(binaryPath);
+            }
+          }
+        } else {
+          // For direct binaries, make the final path executable
+          makeExecutable(finalPath);
+        }
         
         // Verify the file exists
-        if (existsSync(finalPath)) {
-          console.log(`✓ Successfully installed ${dep.name} at: ${finalPath}`);
-          console.log(`File size: ${statSync(finalPath).size} bytes`);
+        let verificationPassed = false;
+        if (platformDep.binaries && platformDep.binaries.length > 0) {
+          // For archives, verify each target binary exists
+          for (const binary of platformDep.binaries) {
+            const binaryPath = join(binDir, binary);
+            if (existsSync(binaryPath)) {
+              console.log(`✓ Successfully installed ${binary} at: ${binaryPath}`);
+              console.log(`File size: ${statSync(binaryPath).size} bytes`);
+              verificationPassed = true;
+            } else {
+              console.error(`❌ Target binary not found: ${binaryPath}`);
+            }
+          }
         } else {
-          console.error(`❌ File not found after installation: ${finalPath}`);
-          throw new Error(`Failed to install ${dep.name} - file not found`);
+          // For direct binaries, verify the final path exists
+          if (existsSync(finalPath)) {
+            console.log(`✓ Successfully installed ${dep.name} at: ${finalPath}`);
+            console.log(`File size: ${statSync(finalPath).size} bytes`);
+            verificationPassed = true;
+          } else {
+            console.error(`❌ File not found after installation: ${finalPath}`);
+          }
+        }
+        
+        if (!verificationPassed) {
+          throw new Error(`Failed to install ${dep.name} - verification failed`);
         }
         
       } catch (error) {
