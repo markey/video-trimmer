@@ -18,6 +18,7 @@
     "build:electron": "tsx scripts/build-electron.ts",
     "download-deps": "node scripts/download-deps.js",
     "test-build": "tsx scripts/test-build.ts",
+    "test-build:local": "npm run download-deps && npm run build",
     "start": "electron .",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

@@ -7,7 +7,7 @@ on:
     branches: [ main, master ]
 
 env:
-  NODE_VERSION: '18'
+  NODE_VERSION: '20'
 
 jobs:
   test-build:
@@ -31,20 +31,28 @@ jobs:
       - name: Install dependencies
         run: npm ci
         
-      - name: Setup platform-specific tools
+      - name: Setup platform-specific tools (Linux)
+        if: runner.os == 'Linux'
         run: |
-          # Install platform-specific dependencies
-          if [ "$RUNNER_OS" = "macOS" ]; then
-            echo "Setting up macOS..."
-            # macOS should have curl by default
-          elif [ "$RUNNER_OS" = "Linux" ]; then
-            echo "Setting up Linux..."
-            sudo apt-get update
-            sudo apt-get install -y unzip curl
-          elif [ "$RUNNER_OS" = "Windows" ]; then
-            echo "Setting up Windows..."
-            # Windows should have PowerShell by default
+          sudo apt-get update
+          sudo apt-get install -y unzip curl tar xz-utils
+          
+      - name: Setup platform-specific tools (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          # macOS should have curl and tar by default
+          # Install unzip if needed
+          if ! command -v unzip &> /dev/null; then
+            brew install unzip
           fi
+          
+      - name: Setup platform-specific tools (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          # Windows should have PowerShell by default
+          # Check if we have required tools
+          Write-Host "PowerShell version: $($PSVersionTable.PSVersion)"
+          Write-Host "Current directory: $(Get-Location)"
           
       - name: Download external dependencies
         run: |
@@ -52,7 +60,11 @@ jobs:
           echo "Node version: $(node --version)"
           echo "Current directory: $(pwd)"
           echo "Contents of scripts/:"
-          ls -la scripts/
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            dir scripts
+          else
+            ls -la scripts
+          fi
           echo "Attempting to download dependencies..."
           node scripts/download-deps.js
         
@@ -62,34 +74,64 @@ jobs:
       - name: Verify build output
         run: |
           # Check that main files exist
-          if [ ! -f "out/main.js" ]; then
-            echo "❌ main.js not found"
-            exit 1
-          fi
-          if [ ! -f "out/preload.cjs" ]; then
-            echo "❌ preload.cjs not found"
-            exit 1
-          fi
-          if [ ! -d "dist/renderer" ]; then
-            echo "❌ renderer directory not found"
-            exit 1
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            if (!(Test-Path "out/main.js")) { 
+              Write-Error "❌ main.js not found"
+              exit 1 
+            }
+            if (!(Test-Path "out/preload.cjs")) { 
+              Write-Error "❌ preload.cjs not found"
+              exit 1 
+            }
+            if (!(Test-Path "dist/renderer")) { 
+              Write-Error "❌ renderer directory not found"
+              exit 1 
+            }
+          else
+            if [ ! -f "out/main.js" ]; then
+              echo "❌ main.js not found"
+              exit 1
+            fi
+            if [ ! -f "out/preload.cjs" ]; then
+              echo "❌ preload.cjs not found"
+              exit 1
+            fi
+            if [ ! -d "dist/renderer" ]; then
+              echo "❌ renderer directory not found"
+              exit 1
+            fi
           fi
           echo "✅ Build verification passed"
           
       - name: Check external dependencies
         run: |
           # Verify that external dependencies were downloaded
-          if [ ! -f "bin/ffmpeg" ] && [ ! -f "bin/ffmpeg.exe" ]; then
-            echo "❌ ffmpeg not found"
-            exit 1
-          fi
-          if [ ! -f "bin/ffprobe" ] && [ ! -f "bin/ffprobe.exe" ]; then
-            echo "❌ ffprobe not found"
-            exit 1
-          fi
-          if [ ! -f "bin/yt-dlp" ] && [ ! -f "bin/yt-dlp.exe" ]; then
-            echo "❌ yt-dlp not found"
-            exit 1
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            if (!(Test-Path "bin/ffmpeg.exe")) { 
+              Write-Error "❌ ffmpeg not found"
+              exit 1 
+            }
+            if (!(Test-Path "bin/ffprobe.exe")) { 
+              Write-Error "❌ ffprobe not found"
+              exit 1 
+            }
+            if (!(Test-Path "bin/yt-dlp.exe")) { 
+              Write-Error "❌ yt-dlp not found"
+              exit 1 
+            }
+          else
+            if [ ! -f "bin/ffmpeg" ] && [ ! -f "bin/ffmpeg.exe" ]; then
+              echo "❌ ffmpeg not found"
+              exit 1
+            fi
+            if [ ! -f "bin/ffprobe" ] && [ ! -f "bin/ffprobe.exe" ]; then
+              echo "❌ ffprobe not found"
+              exit 1
+            fi
+            if [ ! -f "bin/yt-dlp" ] && [ ! -f "bin/yt-dlp.exe" ]; then
+              echo "❌ yt-dlp not found"
+              exit 1
+            fi
           fi
           echo "✅ External dependencies verified"
           
