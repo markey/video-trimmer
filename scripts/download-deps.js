@@ -33,8 +33,10 @@ const dependencies = [
       binaries: ['ffprobe.exe']
     },
     darwin: {
-      url: 'https://evermeet.cx/ffmpeg/getrelease/zip',
-      filename: 'ffmpeg.zip',
+      // Evermeet provides separate archives for ffmpeg and ffprobe on macOS
+      // Use the ffprobe-specific endpoint so the binary is present
+      url: 'https://evermeet.cx/ffmpeg/getrelease/ffprobe/zip',
+      filename: 'ffprobe.zip',
       binaries: ['ffprobe']
     },
     linux: {

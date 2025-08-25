@@ -48,8 +48,9 @@ const dependencies: Dependency[] = [
       extractPath: 'ffmpeg-master-latest-win64-gpl/bin'
     },
     darwin: {
-      url: 'https://evermeet.cx/ffmpeg/getrelease/zip',
-      filename: 'ffmpeg.zip'
+      // Use ffprobe-specific archive on macOS
+      url: 'https://evermeet.cx/ffmpeg/getrelease/ffprobe/zip',
+      filename: 'ffprobe.zip'
     },
     linux: {
       url: 'https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz',
