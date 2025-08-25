@@ -22,6 +22,8 @@ jobs:
   build-windows:
     name: Build for Windows
     runs-on: windows-latest
+    env:
+      APP_VERSION: ${{ github.ref_name }}
     
     steps:
       - name: Checkout code
@@ -55,15 +57,16 @@ jobs:
       - name: Package application
         run: npx tsx scripts/build-electron.ts
         
-      - name: Create Windows installer
+      - name: Create Windows archive
+        shell: pwsh
         run: |
-          # Create a simple zip archive for Windows
-          $compress = @{
-            Path = "dist\video-editor-*\windows-*"
-            CompressionLevel = "Optimal"
-            DestinationPath = "dist\video-editor-windows.zip"
-          }
-          Compress-Archive @compress
+          # Zip the packaged app folder: dist\video-editor-<version>-win32-<arch>
+          $folder = Get-ChildItem -Path "dist" -Directory -Name | Where-Object { $_ -like "video-editor-*-win32-*" } | Select-Object -First 1
+          if (-not $folder) { throw "Packaged folder not found under dist" }
+          $src = Join-Path "dist" $folder
+          $dst = "dist\video-editor-windows.zip"
+          if (Test-Path $dst) { Remove-Item $dst -Force }
+          Compress-Archive -Path $src -DestinationPath $dst -CompressionLevel Optimal
           
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -75,6 +78,8 @@ jobs:
   build-macos:
     name: Build for macOS
     runs-on: macos-latest
+    env:
+      APP_VERSION: ${{ github.ref_name }}
     
     steps:
       - name: Checkout code
@@ -120,6 +125,8 @@ jobs:
   build-linux:
     name: Build for Linux
     runs-on: ubuntu-latest
+    env:
+      APP_VERSION: ${{ github.ref_name }}
     
     steps:
       - name: Checkout code

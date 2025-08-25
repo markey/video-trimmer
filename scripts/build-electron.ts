@@ -25,13 +25,21 @@ async function runCommand(command: string, cwd?: string): Promise<void> {
 
 function getBuildConfig(): BuildConfig {
   const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
-  
+
+  // Prefer tag name provided by CI (strip leading 'v'), fallback to package.json version
+  const refName = process.env.GITHUB_REF_NAME || '';
+  const ref = process.env.GITHUB_REF || '';
+  let tag = '';
+  if (refName) tag = refName;
+  else if (ref.startsWith('refs/tags/')) tag = ref.substring('refs/tags/'.length);
+  const normalizedTag = tag ? tag.replace(/^v/i, '') : '';
+
   return {
     platform: platform(),
     arch: arch(),
     electronVersion: packageJson.devDependencies.electron.replace('^', ''),
     appName: packageJson.name,
-    appVersion: packageJson.version,
+    appVersion: normalizedTag || packageJson.version,
     description: packageJson.description,
     author: packageJson.author || 'Unknown',
     homepage: packageJson.homepage || ''
