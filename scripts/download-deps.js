@@ -66,44 +66,64 @@ const dependencies = [
   }
 ];
 
-async function downloadFile(url, outputPath) {
+async function downloadFile(url, outputPath, attempts = 3) {
   console.log(`Downloading ${url} to ${outputPath}...`);
-  
-  try {
-    if (platform() === 'win32') {
-      // Use PowerShell on Windows for better compatibility
-      console.log('Using PowerShell Invoke-WebRequest for Windows');
-      const psCommand = `Invoke-WebRequest -Uri "${url}" -OutFile "${outputPath}" -UseBasicParsing -TimeoutSec 300`;
-      execSync(`powershell -Command "${psCommand}"`, { stdio: 'inherit', timeout: 300000 });
-    } else {
-      // Use curl on Unix-like systems
-      console.log('Using curl for Unix-like systems');
-      execSync(`curl -L -o "${outputPath}" "${url}" --connect-timeout 30 --max-time 300`, { stdio: 'inherit', timeout: 300000 });
-    }
-    
-    // Verify download
-    if (existsSync(outputPath)) {
-      const stats = statSync(outputPath);
-      console.log(`Download completed: ${outputPath} (${stats.size} bytes)`);
-      
-      // Check if file is not empty
-      if (stats.size === 0) {
-        throw new Error(`Download failed - file is empty: ${outputPath}`);
+  let lastError;
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      if (platform() === 'win32') {
+        console.log('Using PowerShell Invoke-WebRequest for Windows');
+        const psCommand = `Invoke-WebRequest -Uri "${url}" -OutFile "${outputPath}" -UseBasicParsing -TimeoutSec 300`;
+        execSync(`powershell -Command "${psCommand}"`, { stdio: 'inherit', timeout: 300000 });
+      } else {
+        console.log('Using curl for Unix-like systems');
+        execSync(`curl -L -o "${outputPath}" "${url}" --connect-timeout 30 --max-time 300`, { stdio: 'inherit', timeout: 300000 });
       }
-    } else {
+
+      if (existsSync(outputPath)) {
+        const stats = statSync(outputPath);
+        console.log(`Download completed: ${outputPath} (${stats.size} bytes)`);
+        if (stats.size === 0) throw new Error(`Download failed - file is empty: ${outputPath}`);
+        return; // success
+      }
       throw new Error(`Download failed - file not found: ${outputPath}`);
-    }
-  } catch (error) {
-    console.error(`Download failed: ${error.message}`);
-    // Clean up failed download
-    if (existsSync(outputPath)) {
-      try {
-        unlinkSync(outputPath);
-      } catch (cleanupError) {
-        console.warn(`Warning: Could not clean up failed download: ${cleanupError.message}`);
+    } catch (error) {
+      lastError = error;
+      console.error(`Download attempt ${i} failed: ${error.message}`);
+      // Clean up failed download
+      if (existsSync(outputPath)) {
+        try { unlinkSync(outputPath); } catch {}
+      }
+      if (i < attempts) {
+        const delayMs = 1000 * Math.pow(2, i - 1); // 1s, 2s, 4s backoff
+        console.log(`Retrying in ${delayMs} ms...`);
+        await new Promise(r => setTimeout(r, delayMs));
       }
     }
-    throw error;
+  }
+  console.error(`All ${attempts} download attempts failed.`);
+  throw lastError;
+}
+
+function findOnPath(cmd) {
+  try {
+    const detector = platform() === 'win32' ? `where ${cmd}` : `command -v ${cmd}`;
+    const res = execSync(detector, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    return res.split(/\r?\n/)[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+function createWrapper(finalPath, systemPath) {
+  console.log(`Creating wrapper at ${finalPath} -> ${systemPath}`);
+  if (platform() === 'win32') {
+    // For Windows we expect .exe downloads; wrapper not implemented
+    throw new Error('Wrapper creation on Windows not supported');
+  } else {
+    const script = `#!/usr/bin/env bash\n"${systemPath}" "$@"\n`;
+    writeFileSync(finalPath, script);
+    execSync(`chmod +x "${finalPath}"`);
   }
 }
 
@@ -305,39 +325,55 @@ async function main() {
       console.log(`Final path: ${finalPath}`);
       
       try {
-        // Check if we already downloaded this archive
-        if (downloadedArchives.has(platformDep.url)) {
-          console.log(`📦 Using already downloaded archive for ${dep.name}...`);
-          const archivePath = downloadedArchives.get(platformDep.url);
+        // If binary already exists on PATH, satisfy by wrapper and skip download
+        const systemCmd = dep.name + (currentPlatform === 'win32' ? '.exe' : '');
+        if (!existsSync(finalPath)) {
+          const systemPath = findOnPath(systemCmd);
+          if (systemPath && currentPlatform !== 'win32') {
+            console.log(`Found ${dep.name} on PATH at ${systemPath}. Using system binary.`);
+            createWrapper(finalPath, systemPath);
+            // Mark archive as satisfied by ensuring expected names are present
+          }
+        }
+
+        // If finalPath now exists, skip downloading
+        if (existsSync(finalPath)) {
+          console.log(`${dep.name} already available at ${finalPath}, skipping download.`);
+        } else {
+          // Check if we already downloaded this archive
+          if (downloadedArchives.has(platformDep.url)) {
+            console.log(`📦 Using already downloaded archive for ${dep.name}...`);
+            const archivePath = downloadedArchives.get(platformDep.url);
           
           // Extract from the existing archive
           if (platformDep.filename.includes('.zip') || platformDep.filename.includes('.tar.xz')) {
             console.log(`Extracting from existing archive: ${archivePath}`);
             extractArchive(archivePath, binDir, platformDep.extractPath, platformDep.binaries);
           }
-        } else {
-          // Download the dependency
-          console.log(`Downloading ${dep.name} from: ${platformDep.url}`);
-          await downloadFile(platformDep.url, downloadPath);
-          console.log(`Download completed: ${downloadPath}`);
-          
-          // Extract if it's an archive
-          if (platformDep.filename.includes('.zip') || platformDep.filename.includes('.tar.xz')) {
-            console.log(`Extracting archive: ${downloadPath}`);
-            extractArchive(downloadPath, binDir, platformDep.extractPath, platformDep.binaries);
-            // Store the archive path for reuse
-            downloadedArchives.set(platformDep.url, downloadPath);
           } else {
-            // It's a direct binary; move only if paths differ
-            if (downloadPath !== finalPath) {
-              console.log(`Moving binary to final location: ${finalPath}`);
-              if (platform() === 'win32') {
-                execSync(`move "${downloadPath}" "${finalPath}"`, { stdio: 'inherit' });
-              } else {
-                execSync(`mv "${downloadPath}" "${finalPath}"`, { stdio: 'inherit' });
-              }
+            // Download the dependency
+            console.log(`Downloading ${dep.name} from: ${platformDep.url}`);
+            await downloadFile(platformDep.url, downloadPath);
+            console.log(`Download completed: ${downloadPath}`);
+
+            // Extract if it's an archive
+            if (platformDep.filename.includes('.zip') || platformDep.filename.includes('.tar.xz')) {
+              console.log(`Extracting archive: ${downloadPath}`);
+              extractArchive(downloadPath, binDir, platformDep.extractPath, platformDep.binaries);
+              // Store the archive path for reuse
+              downloadedArchives.set(platformDep.url, downloadPath);
             } else {
-              console.log('Download path equals final path; skipping move');
+              // It's a direct binary; move only if paths differ
+              if (downloadPath !== finalPath) {
+                console.log(`Moving binary to final location: ${finalPath}`);
+                if (platform() === 'win32') {
+                  execSync(`move "${downloadPath}" "${finalPath}"`, { stdio: 'inherit' });
+                } else {
+                  execSync(`mv "${downloadPath}" "${finalPath}"`, { stdio: 'inherit' });
+                }
+              } else {
+                console.log('Download path equals final path; skipping move');
+              }
             }
           }
         }

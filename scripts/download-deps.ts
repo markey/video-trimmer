@@ -75,17 +75,49 @@ const dependencies: Dependency[] = [
   }
 ];
 
-async function downloadFile(url: string, outputPath: string): Promise<void> {
+async function downloadFile(url: string, outputPath: string, attempts = 3): Promise<void> {
   console.log(`Downloading ${url} to ${outputPath}...`);
-  
-  if (platform() === 'win32') {
-    // Use PowerShell on Windows for better compatibility
-    const psCommand = `Invoke-WebRequest -Uri "${url}" -OutFile "${outputPath}" -UseBasicParsing`;
-    execSync(`powershell -Command "${psCommand}"`, { stdio: 'inherit' });
-  } else {
-    // Use curl on Unix-like systems
-    execSync(`curl -L -o "${outputPath}" "${url}"`, { stdio: 'inherit' });
+  let lastErr: any;
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      if (platform() === 'win32') {
+        // Use PowerShell on Windows for better compatibility
+        const psCommand = `Invoke-WebRequest -Uri "${url}" -OutFile "${outputPath}" -UseBasicParsing -TimeoutSec 300`;
+        execSync(`powershell -Command "${psCommand}"`, { stdio: 'inherit' });
+      } else {
+        // Use curl on Unix-like systems with timeouts
+        execSync(`curl -L -o "${outputPath}" "${url}" --connect-timeout 30 --max-time 300`, { stdio: 'inherit' });
+      }
+      return; // success
+    } catch (e: any) {
+      lastErr = e;
+      if (i < attempts) {
+        const delayMs = 1000 * Math.pow(2, i - 1);
+        console.log(`Download failed (attempt ${i}). Retrying in ${delayMs} ms...`);
+        await new Promise(r => setTimeout(r, delayMs));
+      }
+    }
   }
+  throw lastErr;
+}
+
+function findOnPath(cmd: string): string | null {
+  try {
+    const detector = platform() === 'win32' ? `where ${cmd}` : `command -v ${cmd}`;
+    const res = execSync(detector, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    return res.split(/\r?\n/)[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+function createWrapper(finalPath: string, systemPath: string) {
+  if (platform() === 'win32') {
+    throw new Error('Wrapper creation on Windows not supported');
+  }
+  const script = `#!/usr/bin/env bash\n"${systemPath}" "$@"\n`;
+  writeFileSync(finalPath, script);
+  execSync(`chmod +x "${finalPath}"`);
 }
 
 function extractArchive(archivePath: string, extractTo: string, extractPath?: string): void {
@@ -159,8 +191,19 @@ async function main(): Promise<void> {
     const finalPath = join(binDir, dep.name + (currentPlatform === 'win32' ? '.exe' : ''));
     
     try {
-      // Check if we already downloaded this archive
-      if (downloadedArchives.has(platformDep.url)) {
+      // If binary exists on PATH (Linux/macOS), create wrapper and skip download
+      if (!existsSync(finalPath)) {
+        const systemPath = findOnPath(dep.name + (currentPlatform === 'win32' ? '.exe' : ''));
+        if (systemPath && currentPlatform !== 'win32') {
+          console.log(`Found ${dep.name} on PATH at ${systemPath}. Using system binary.`);
+          createWrapper(finalPath, systemPath);
+        }
+      }
+
+      // Skip download if already satisfied
+      if (existsSync(finalPath)) {
+        console.log(`${dep.name} already available at ${finalPath}, skipping download.`);
+      } else if (downloadedArchives.has(platformDep.url)) {
         console.log(`📦 Using already downloaded archive for ${dep.name}...`);
         const archivePath = downloadedArchives.get(platformDep.url)!;
         
