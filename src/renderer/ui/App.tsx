@@ -669,8 +669,8 @@ const DownloadPanel: React.FC<{ onDownloaded: (path: string) => void; onProbe: (
    * Opens a save dialog for the user to choose where to save the downloaded video.
    */
   const chooseOutput = async () => {
-    const p = await window.electronAPI.saveFile(outPath);
-    if (p) setOutPath(p);
+    const picked: string | null = await window.electronAPI.saveFile(outPath);
+    if (picked) setOutPath(picked);
   };
 
   /**
@@ -683,8 +683,9 @@ const DownloadPanel: React.FC<{ onDownloaded: (path: string) => void; onProbe: (
     // Ensure we have an output path
     let p = outPath;
     if (!p) {
-      p = await window.electronAPI.saveFile();
-      if (!p) return;
+      const picked: string | null = await window.electronAPI.saveFile();
+      if (!picked) return;
+      p = picked;
       setOutPath(p);
     }
 
@@ -823,16 +824,17 @@ const ExportPanel: React.FC<{ project: ProjectStore; onChange: (p: ProjectStore)
   }, []);
 
   const chooseOutput = async () => {
-    const path = await window.electronAPI.saveFile(exp.outputPath);
-    if (path) set({ outputPath: path });
+    const picked: string | null = await window.electronAPI.saveFile(exp.outputPath);
+    if (picked) set({ outputPath: picked });
   };
 
   const onExport = async () => {
     if (!project.sourcePath) return alert('No source file');
     let out = exp.outputPath;
     if (!out) {
-      out = await window.electronAPI.saveFile();
-      if (!out) return;
+      const picked: string | null = await window.electronAPI.saveFile();
+      if (!picked) return;
+      out = picked;
       set({ outputPath: out });
     }
     // Pre-render watermark as PNG so export matches preview exactly
