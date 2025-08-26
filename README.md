@@ -17,7 +17,17 @@ Minimal, frame-accurate trimmer with text watermark and video downloading capabi
 - **Export**: Export trimmed videos with watermark in MP4 format using FFmpeg
 - **Preview**: Real-time video preview with playback controls
 
-Getting started
+Installation
+
+- Recommended: Released builds (all‑in‑one, no setup)
+  - Windows: Download the latest “video-trimmer-windows.zip” from Releases, unzip, then double‑click "Start Video Trimmer.cmd" or "Video Trimmer.exe".
+  - macOS: Download the "video-trimmer-<version>-darwin-<arch>.tar.gz", extract, then open the bundled "Electron.app" or the "video-trimmer" launcher in the folder.
+  - Linux: Download the "video-trimmer-<version>-linux-<arch>.tar.gz", extract, then run "./video-trimmer" (or "./electron" if preferred).
+  - Notes:
+    - These downloads include the Electron runtime, FFmpeg/ffprobe, and yt-dlp — everything needed to run offline.
+    - On Windows, SmartScreen may warn about unknown publisher; choose “More info → Run anyway”.
+
+From source (developers)
 
 1) Install dependencies
 
@@ -39,6 +49,8 @@ Binary dependencies
 - **FFmpeg and ffprobe**: Must be available on PATH, or place binaries under `bin/ffmpeg(.exe)` and `bin/ffprobe(.exe)`.
 - **yt-dlp**: Required for video downloading functionality. Must be available on PATH, or place binary under `bin/yt-dlp(.exe)`.
 
+The released builds already bundle these tools; this section applies only when running from source.
+
 
 ## Download Usage
 
@@ -57,5 +69,4 @@ Planned next steps
 - Wire ffprobe IPC: read FPS, duration, resolution, codecs and store in project.
 - Thumbnail generator and keyframe indexer.
 - Export worker: streaming progress to renderer and cancellation.
-
 
